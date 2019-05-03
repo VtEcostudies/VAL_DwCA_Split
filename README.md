@@ -25,33 +25,33 @@ Specifics:
   called datasetKey_gbifArray.txt.
 - For each new datasetKey in occurrence.txt repeat the above steps
 
-  File: verbatim_split.js
+File: verbatim_split.js
 
-  Purpose:
-  Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
+Purpose:
+Parse aggregate GBIF download DWcA into individual datasets/providers.
+Goal being then to ingest each dataset into VAL as a seprate data resource.
 
-  Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey
-  array-in-file generated from processing occurrence.txt, which contains the
-  only link between gbifId and datasetKey.
+Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey
+array-in-file generated from processing occurrence.txt, which contains the
+only link between gbifId and datasetKey.
 
-  Assumptions:
-  - dwca_split has successfully run against occurrence.txt.
-  - gbifIds in verbatim.txt are a subset of those in occurrence.txt
-  - gbifIds uniquely map to a single GBIF datasetKey
+Assumptions:
+- dwca_split has successfully run against occurrence.txt.
+- gbifIds in verbatim.txt are a subset of those in occurrence.txt
+- gbifIds uniquely map to a single GBIF datasetKey
 
-  File: multimedia_split.js
+File: multimedia_split.js
 
-  Purpose:
-  Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
+Purpose:
+Parse aggregate GBIF download DWcA into individual datasets/providers.
+Goal being then to ingest each dataset into VAL as a seprate data resource.
 
-  Specifics:
-  Split multimedia.txt into datasetKey directories using gbifId-to-datesetKey
-  array-in-file generated from processing occurrence.txt, which contains the
-  only link between gbifId and datasetKey.
+Specifics:
+Split multimedia.txt into datasetKey directories using gbifId-to-datesetKey
+array-in-file generated from processing occurrence.txt, which contains the
+only link between gbifId and datasetKey.
 
-  Assumptions:
-  - dwca_split has successfully run against occurrence.txt.
-  - gbifIds in multimedia.txt are a subset of those in occurrence.txt
-  - gbifIds uniquely map to a single GBIF datasetKey
+Assumptions:
+- dwca_split has successfully run against occurrence.txt.
+- gbifIds in multimedia.txt are a subset of those in occurrence.txt
+- gbifIds uniquely map to a single GBIF datasetKey
