@@ -25,7 +25,7 @@
   - After processing occurrence.txt, use that array-in-file to process
     verbatim.txt and multimedia.txt into their datasetKey directories.
   - Also create the inverse array, datasetKey=[gbifId,gbifId,...] and put into file
-    called datasetKey_gbifArray.txt.
+    called datasetKey_gbifArray.txt. The dKey checklist is used in citations_rights_get.
   - For each new datasetKey in occurrence.txt repeat the above steps
 */
 
@@ -81,6 +81,9 @@ fRead.on('line', function (row) {
       //create dKey and dKey/data directories (in one go) if they don't exist
       //fs.mkdir(`${sDir}/${dKey}/dataset`, {recursive:true}, (err) => {
       //if (err) throw err;
+      //NOTE: Couldn't make async mkdir work, even though I call copyfile inside
+      //callback, and there were no errors. Seems ridiculous to have to write a
+      //custom waitfor method to handle file system async uncertainty.
 
       fs.mkdirSync(`${sDir}/${dKey}/dataset`, {recursive:true});
 

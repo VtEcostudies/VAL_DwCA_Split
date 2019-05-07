@@ -17,7 +17,7 @@
   to retrieve citations and rights information for the dataset.
 
   Assumptions:
-  - dwca_split has successfully run against occurrence.txt.
+  - occurrence_split has successfully run against occurrence.txt.
   - gbifIds in citation.txt are a subset of those in occurrence.txt
   - gbifIds uniquely map to a single GBIF datasetKey
   - datasetKey is a persistent, immutable value we can use to create

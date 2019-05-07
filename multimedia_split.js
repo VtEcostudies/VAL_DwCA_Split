@@ -13,7 +13,7 @@
   only link between gbifId and datasetKey.
 
   Assumptions:
-  - dwca_split has successfully run against occurrence.txt.
+  - occurrence_split has successfully run against occurrence.txt.
   - gbifIds in multimedia.txt are a subset of those in occurrence.txt
   - gbifIds uniquely map to a single GBIF datasetKey
 */

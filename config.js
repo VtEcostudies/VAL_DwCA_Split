@@ -1,5 +1,9 @@
 
 exports.paths = {
-  dwcaDir: "../dwca",
-  splitDir: "../split"
-}
+  dwcaDir: "../dwca-small",
+  splitDir: "../split-small"
+};
+
+exports.urls = {
+  val: "http://beta.vtatlasoflife.org"
+};
