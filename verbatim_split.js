@@ -1,12 +1,13 @@
 /*
   Author: Jason Loomis
 
+  Project: gbif_dwca_split
+  Parse aggregate GBIF download DWcA into individual datasets/providers.
+  Goal being then to ingest each dataset into VAL as a separate data resource.
+
   File: verbatim_split.js
 
-  Purpose:
-  Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
-
+  Specifics:
   Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey
   array-in-file generated from processing occurrence.txt, which contains the
   only link between gbifId and datasetKey.

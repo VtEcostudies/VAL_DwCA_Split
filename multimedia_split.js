@@ -1,11 +1,11 @@
 /*
   Author: Jason Loomis
 
-  File: multimedia_split.js
-
-  Purpose:
+  Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
+  Goal being then to ingest each dataset into VAL as a separate data resource.
+
+  File: multimedia_split.js
 
   Specifics:
   Split multimedia.txt into datasetKey directories using gbifId-to-datesetKey

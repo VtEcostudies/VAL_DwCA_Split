@@ -1,11 +1,11 @@
 /*
   Author: Jason Loomis
 
-  File: occurrence_split.js
+  Project: gbif_dwca_split
+  Parse aggregate GBIF download DWcA into individual datasets/providers.
+  Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  Purpose:
-    Parse aggregate GBIF download DWcA into individual datasets/providers.
-    Goal being then to ingest each dataset into VAL as a separate data resource.
+  File: occurrence_split.js
 
   Notes:
     dataset/provider eml is stored as /dataset/datasetKey.xml and referenced in
@@ -17,8 +17,6 @@
   - Copy ./dataset/datasetKey.xml to ./datsetKey/dataset/datasetKey.xml
   - Copy ./meta.xml to ./datasetKey/meta.xml
   - Copy ./metadata.xml to ./datasetKey/metadata.xml
-  - Copy ./rights.txt to ./datasetKey/rights.txt (TODO: clean to just its own dataset provider)
-  - Copy ./citations.txt to ./datasetKey/citations.txt (TODO: clean to just its own dataset provider)
   - Create a new occurrence.txt in the ./datasetKey directory with just occurrences
     for that datasetKey
   - Create an array like gbifId=datasetKey and put into file gbifId_datasetKey.txt
@@ -105,14 +103,6 @@ fRead.on('line', function (row) {
           fs.copyFile(`${dDir}/metadata.xml`, `${sDir}/${dKey}/metadata.xml`, (err) => {
             if (err) throw err;
             console.log(`Copied ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);
-          });
-          fs.copyFile(`${dDir}/rights.txt`, `${sDir}/${dKey}/rights.txt`, (err) => {
-            if (err) throw err;
-            console.log(`Copied ${dDir}/rights.txt ==> ${sDir}/${dKey}/rights.txt`);
-          });
-          fs.copyFile(`${dDir}/citations.txt`, `${sDir}/${dKey}/citations.txt`, (err) => {
-            if (err) throw err;
-            console.log(`Copied ${dDir}/citations.txt ==> ${sDir}/${dKey}/citations.txt`);
           });
         } else {
           // make dKeyArr[dKey] = [gbifId, gbifId, ...]

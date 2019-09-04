@@ -1,11 +1,11 @@
 /*
   Author: Jason Loomis
 
-  File: citations_rights_get.js
-
-  Purpose:
+  Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
+  Goal being then to ingest each dataset into VAL as a separate data resource.
+
+  File: citations_rights_get.js
 
   Specifics:
   Create citations.txt and rights.txt for each datasetKey in a subdirectory with

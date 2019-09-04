@@ -5,5 +5,6 @@ exports.paths = {
 };
 
 exports.urls = {
-  val: "http://beta.vtatlasoflife.org"
+  val_docker_beta: "http://beta.vtatlasoflife.org",
+  collectory: "https://collectory.vtatlasoflife.org"
 };

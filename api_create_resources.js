@@ -1,18 +1,32 @@
 /*
   Author: Jason Loomis
 
-  File: api_create_resources.js
-
-  Purpose:
+  Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a seprate data resource.
+  Goal being then to ingest each dataset into VAL as a separate data resource.
 
+  File: api_create_resources.js
+  
   Specifics:
-  Create or Update VAL Collectory Resources from datasets.
+  - use config.js to gather local folder holding source data, remove url hosting collectory API
+  - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
+  - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
+  - Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gather from GBIF
+  - Zip DwCA dataset files into archive named 'datasetKey.zip'
+  - Upload DwCA archive to LA Collectory node public folder (eg. 'gbif_split')
 
+  ToDo:
+  - zip DwCA dataset files into archive named 'datasetKey.zip'
+  - upload data file to the server for ingestion
+
+  Notes:
   For each datasetKey, POST/PUT to the VAL API:
 
+  val-docker (spring of 2019):
   http://beta.vtatlasoflife.org/collectory/ws/{resourceType}/{typeId}
+  
+  val-ansible-production (fall of 2019):
+  https://collectory.vtatlasoflife.org/ws/{}/{}
 
   to create/update resources for dataset upload and ingestion:
 
@@ -71,41 +85,50 @@ dRead.on('line', function (row) {
 //when the datasetKey-to-gibfId file is done loading, create/update resources
 dRead.on('close', function() {
   idx = 1;
-  Object.keys(dKeyArr).forEach(function(dKey) {
-    //request citation object from GBIF dataset API
+  Object.keys(dKeyArr).forEach(function(dKey) { //Iterate over datasetKeys, using just the keys, here. Ignore gbifIds.
+    //request dataset object from GBIF dataset API
     Request.get(`http://api.gbif.org/v1/dataset/${dKey}`, (err, res, body) => {
         if (err) {return console.log(err);}
         var gbif = JSON.parse(body);
         var pBody = gbifToAlaDataset(gbif);
         console.log(`${idx} | dataset | ${dKey}`);
         //console.dir(gbif);
-        Request.get(`${urls.val}/collectory/ws/dataResource?guid=${dKey}`, (err, res, body) => { //find DR
+        //search request for dataResource object from ALA collectory API
+        Request.get(`${urls.collectory}/ws/dataResource?guid=${dKey}`, (err, res, body) => { //find DR
           if (err) {return console.log(err);}
           console.log(dKey, res.statusCode);
           if (res.statusCode === 200) {
             var vBody = JSON.parse(body); //need the existing content for PUT
             console.dir(vBody);
+            console.log(`PUT/POST Body:`);
+            console.dir(pBody);
             if (vBody.length === 1) { //PUT
+              //dataResource with guid==datasetKey found: PUT
               Request.put({
-                url: `${urls.val}/collectory/ws/dataResource/${vBody[0].uid}`,
+                url: `${urls.collectory}/ws/dataResource/${vBody[0].uid}`,
                 body: pBody,
                 json: true
               }, (err, res, body) => { //update DR
-                if (err) {return console.dir(err);}
-                console.dir(`PUT result: ${res.statusCode}`);
+                if (err) {return console.dir(`PUT ERROR: ${err} | ${vBody[0].uid} | ${dKey}`);}
+                return console.dir(`PUT result: ${res.statusCode}`);
               });
             } else if (vBody.length === 0) { //POST
+              //dataResource with guid==datasetKey NOT found: POST
               Request.post({
-                  url: `${urls.val}/collectory/ws/dataResource`,
+                  url: `${urls.collectory}/ws/dataResource`,
                   body: pBody,
                   json: true
                 }, (err, res, body) => { //create DR
-                if (err) {return console.dir(err);}
-                console.dir(`POST result: ${res.statusCode}`);
+                  if (err) {return console.dir(`PUT ERROR: ${err} | ${vBody[0].uid} | ${dKey}`);}
+                return console.dir(`POST result: ${res.statusCode}`);
               });
+            } else { //vbody.length > 1
+              //dataResource with guid==datasetKey found more than one: ERROR
+              return console.log(`Error: Invalid record count: ${vBody.length}`);
             }
           } else { //ERROR
-            console.log(`Error: ${res.statusCode}`);
+            //
+            return console.log(`Error: ${res.statusCode}`);
           }
         });
         idx++;
@@ -113,24 +136,24 @@ dRead.on('close', function() {
   });
 });
 
-function gbifToAlaDataset(gbif) {
-
-  return {
-      "name": gbif.title,
-      "acronym": null,
-      //"uid": gbif.key, //looks like we can't set this on creation (or PUT) so leave it off
+function gbifToAlaDataset(gbif, put = true) {
+  // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
+  var ala = {
+      "name": `${gbif.title} (Vermont)`,
+      "acronym": "",
+      "uid": gbif.key, //this field cannot be set externally
       "guid": gbif.key,
-      "address": null,
-      "phone": null,
-      "email": null,
-      "pubShortDescription": null,
-      "pubDescription": gbif.description,
-      "techDescription": null,
-      "focus": null,
-      "state": null,
+      "address": null, //can't be empty string
+      "phone": "",
+      "email": "",
+      "pubShortDescription": "",
+      "pubDescription": `${gbif.description} (Vermont)`,
+      "techDescription": `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&state_province=vermont&advanced=1`,
+      "focus": "",
+      "state": "",
       "websiteUrl": gbif.homepage,
       //"alaPublicUrl": "http://beta.vtatlasoflife.org/collectory/public/show/dr8",
-      "networkMembership": null,
+      "networkMembership": null, //can't be empty string
       "hubMembership": [],
       "taxonomyCoverageHints": [],
       "attributions": [], //gbif.contacts,
@@ -138,13 +161,13 @@ function gbifToAlaDataset(gbif) {
       //"lastUpdated": "2019-05-02T15:42:44Z",
       //"userLastModified": "not available",
       "rights": gbif.license,
-      "licenseType": "other",
-      "licenseVersion": null,
+      "licenseType": "",
+      "licenseVersion": "",
       "citation": gbif.citation.text,
       "resourceType": "records",
-      "dataGeneralizations": null,
-      "informationWithheld": null,
-      "permissionsDocument": null,
+      "dataGeneralizations": "",
+      "informationWithheld": "",
+      "permissionsDocument": "",
       "permissionsDocumentType": "Other",
       "contentTypes": [
           "point occurrence data",
@@ -152,18 +175,18 @@ function gbifToAlaDataset(gbif) {
       ],
       "connectionParameters": {
           "protocol": "DwCA",
-          "url": `${urls.val}/collectory/upload/${gbif.key}.zip`,
+          "url": `${urls.collectory}/gbif-split/${gbif.key}.zip`,
           "termsForUniqueKey": [
               "gbifID"
           ]
       },
       "hasMappedCollections": false,
       "status": "identified",
-      //"provenance": null,
+      "provenance": "", //can't be null. can be empty string.
       "harvestFrequency": 0,
       //"lastChecked": "2019-04-30T18:17:17Z",
-      "dataCurrency": null,
-      "harvestingNotes": null,
+      "dataCurrency": null, //can't be empty string
+      "harvestingNotes": "",
       "publicArchiveAvailable": false,
       "publicArchiveUrl": "",
       "gbifArchiveUrl": "",
@@ -172,6 +195,8 @@ function gbifToAlaDataset(gbif) {
       "isShareableWithGBIF": true,
       "verified": false,
       "gbifRegistryKey": gbif.key,
-      "doi": gbif.doi
-  }
+      "doi": gbif.doi //this does not work - cannot set via the API
+  };
+
+  return ala;
 }
