@@ -1,0 +1,24 @@
+{
+  "name": "val_dwca_split",
+  "version": "1.0.0",
+  "description": "Parse aggregate GBIF download DWcA into individual datasets/providers for updload and ingestion.",
+  "main": "index.js",
+  "dependencies": {
+    "readline": "^1.3.0",
+    "request": "^2.88.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VtEcostudies/gbif_dwca_split.git"
+  },
+  "author": "Jason Loomis",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/VtEcostudies/gbif_dwca_split/issues"
+  },
+  "homepage": "https://github.com/VtEcostudies/gbif_dwca_split#readme"
+}

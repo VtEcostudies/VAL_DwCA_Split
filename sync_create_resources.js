@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: api_create_resources.js
+  File: sync_create_resources.js
   
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
@@ -30,9 +30,6 @@
 
   to create/update resources for dataset upload and ingestion:
 
-  - Institutions
-  - Collections (?)
-  - dataProviders
   - dataResources
 
   Assumptions:
@@ -42,8 +39,6 @@
   - datasetKey is a persistent, immutable value we can use to create
     citation.txt (and others)
 */
-
-//https://nodejs.org/api/readline.html
 var readline = require('readline');
 var fs = require('fs');
 var paths = require('./config').paths;
@@ -55,12 +50,9 @@ console.log(`config paths: ${JSON.stringify(paths)}`);
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
-var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
+//var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
+var dArr = [];
 var idx = 0; //file row index
-var top = ""; //1st line in file - field names
-var arr = [];
-var mod = null;
-var dKey = "";
 var dRead = readline.createInterface({
   input: fs.createReadStream(`${sDir}/datasetKey_gbifArray.txt`)
 });
@@ -68,77 +60,121 @@ var dRead = readline.createInterface({
 //load the datasetKey_gbifArray file into local array
 dRead.on('line', function (row) {
   idx++;
-  arr = row.split(":");
-  mod = arr.slice(); //using .slice() copies by value, not by reference
+  var arr = row.split(":");
+  var mod = arr.slice(); //using .slice() copies by value, not by reference
 
-  dKey = mod[0];
-  dKeyArr[dKey] = mod[1];
+  var dKey = mod[0];
+  //dKeyArr[dKey] = mod[1];
+  dArr[idx] = dKey;
 
   console.log(`read line: ${idx} datasetKey: ${dKey}`);
 });
 
-//when the datasetKey-to-gibfId file is done loading, create/update resources
-dRead.on('close', function() {
-  idx = 1;
-  Object.keys(dKeyArr).forEach(function(dKey) { //Iterate over datasetKeys, using just the keys, here. Ignore gbifIds.
-    //request dataset object from GBIF dataset API
-    Request.get({url:`http://api.gbif.org/v1/dataset/${dKey}`, json:true}, (err, res, gbif) => {
-        if (err) {console.log('GBIF GET Error', err, res.statusCode); return err;}
-        var pBody = gbifToAlaDataset(gbif); //PUT/POST Body - create data format for LA Collectory from GBIF
-        console.log(`${idx} | dataset | ${dKey}`);
-        //search request for dataResource object from ALA collectory API
-        Request.get({url:`${urls.collectory}/ws/dataResource?guid=${dKey}`, json:true}, (err, res, gBody) => { //find DR
-          if (err) {console.log('Collectory GET Error', err, res.statusCode); return err;}
-          console.log(dKey, res.statusCode);
-          if (res.statusCode === 200) {
-            if (gBody.length === 1) { //PUT (dataResource with guid==datasetKey found)
-              Request.put({
-                url: `${urls.collectory}/ws/dataResource/${gBody[0].uid}`, //PUT operates on uid, not guid
-                body: pBody,
-                json: true
-              }, (err, res, body) => { //update DR
-                if (err || res.statusCode > 399) {
-                  console.log(`PUT Error for Data Resource UID ${gBody[0].uid}:`, res.statusCode, err);
-                  return err;
-                } else {
-                  console.log(`PUT Result for Data Resource UID ${gBody[0].uid}:`, res.statusCode, `(${body})`);
-                  return res;
-                }
-              });
-            } else if (gBody.length === 0) { //POST (dataResource with guid==datasetKey NOT found)
-              //delete pBody.uid; //remove uid from POST body
-              Request.post({
-                  url: `${urls.collectory}/ws/dataResource`, //POST operates on base path
-                  body: pBody,
-                  json: true
-                }, (err, res, body) => { //create DR
-                if (err || res.statusCode > 399) {
-                  console.log(`POST Error GUID ${pBody.guid}:`, res.statusCode, res.statusCode, err);
-                  return err;
-                } else {
-                  console.log(`POST Result GUID ${pBody.guid}:`, res.statusCode, `(${body})`);
-                  return res;
-                }
-              });
-            } else { //vbody.length > 1
-              //dataResource with guid==datasetKey found more than one: ERROR
-              return console.log(`Error: Invalid record count: ${gBody.length}`);
-            }
-          } else { //ERROR Getting the DR from the Collectory web service
-            return console.log(`Collectory GET Error for ${urls.collectory}/ws/dataResource?guid=${dKey}: ${res.statusCode}`);
-          }
-        });
-        idx++;
-    });
-  });
+dRead.on('close', async function() {
+  var gbif = null;
+  var alaDR = [];
+  for (var idx=1; idx < dArr.length; idx++) {
+    gbif = await getGbifDataset(idx, dArr[idx]);
+    if (gbif) {
+      console.log('GBIF Dataset Title:', gbif.title);
+      alaDR = await getAlaDataResource(idx, dArr[idx]);
+      if (alaDR.length == 0) {
+        console.log('ALA Data Resource NOT found.');
+        await postAlaDataResource(idx, dArr[idx], gbif);
+      } else if (alaDR.length == 1) {
+        console.log('ALA Data Resource UID:', alaDR[0].uid);
+        await putAlaDataResource(idx, dArr[idx], alaDR[0], gbif);
+      } else {
+        console.log(`ERROR: ALA Data Resource GUID ${dArr[idx]} has ${alaDR.length} entries.`);
+      }
+    }
+  }
 });
 
-function gbifToAlaDataset(gbif) {
+function getGbifDataset(idx, dKey) {
+  var parms = {
+    url: `http://api.gbif.org/v1/dataset/${dKey}`,
+    json: true
+  };
+
+  return new Promise((resolve, reject) => {
+    Request.get(parms, (err, res, body) => {
+      console.log(`GBIF Dataset | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      if (err || res.statusCode > 399) {
+        reject(err);
+      } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+function getAlaDataResource(idx, dKey) {
+  var parms = {
+    url: `${urls.collectory}/ws/dataResource?guid=${dKey}`,
+    json: true
+  };
+
+  return new Promise((resolve, reject) => {
+    Request.get(parms, (err, res, body) => {
+      console.log(`GET ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      if (err || res.statusCode > 399) {
+        reject(err);
+      } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+function postAlaDataResource(idx, dKey, gbif) {
+  var pBody = gbifToAlaDataset(gbif); //POST Body - create data format for LA Collectory from GBIF
+  
+  var parms = {
+    url: `${urls.collectory}/ws/dataResource`,
+    body: pBody,
+    json: true
+  };
+  
+  return new Promise((resolve, reject) => {
+    Request.post(parms, (err, res, body) => {
+      console.log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      if (err || res.statusCode > 399) {
+        reject(err);
+      } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+function putAlaDataResource(idx, dKey, alaDR, gbif) {
+  var pBody = gbifToAlaDataset(gbif, alaDR); //PuT Body - create data format for LA Collectory from GBIF
+  
+  var parms = {
+    url: `${urls.collectory}/ws/dataResource/${alaDR.uid}`,
+    body: pBody,
+    json: true
+  };
+  
+  return new Promise((resolve, reject) => {
+    Request.put(parms, (err, res, body) => {
+      console.log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      if (err || res.statusCode > 399) {
+        reject(err);
+      } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+function gbifToAlaDataset(gbif, alaDR={}) {
   // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
   var ala = {
       "name": `${gbif.title} (Vermont)`,
       "acronym": "",
-      //"uid": `dr${idx}`, //gbif.uid || null, //DO NOT SEND THIS FIELD ON POST. This field cannot be set externally.
+      //"uid": null, //This field cannot be set externally.
       "guid": gbif.key,
       "address": null, //can't be empty string
       "phone": "",
@@ -169,7 +205,7 @@ function gbifToAlaDataset(gbif) {
       ],
       "connectionParameters": {
           "protocol": "DwCA",
-          "url": `${urls.collectory}/gbif-split/${gbif.key}.zip`,
+          "url": `${urls.collectory}/archives/gbif-split/${gbif.key}.zip`,
           "termsForUniqueKey": [
               "gbifID"
           ]
@@ -180,9 +216,9 @@ function gbifToAlaDataset(gbif) {
       "harvestFrequency": 0,
       "dataCurrency": null, //can't be empty string
       "harvestingNotes": "",
-      "publicArchiveAvailable": false,
-      "publicArchiveUrl": "",
-      "gbifArchiveUrl": "",
+      "publicArchiveAvailable": true,
+      //"publicArchiveUrl": `${urls.collectory}/archives/gbif/${alaDR.uid}/${alaDR.uid}.zip`,
+      //"gbifArchiveUrl": `${urls.collectory}/archives/gbif/${alaDR.uid}/${alaDR.uid}.zip`,
       "downloadLimit": 0,
       "gbifDataset": true,
       "isShareableWithGBIF": true,
