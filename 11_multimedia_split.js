@@ -5,16 +5,16 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: verbatim_split.js
+  File: multimedia_split.js
 
   Specifics:
-  Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey
+  Split multimedia.txt into datasetKey directories using gbifId-to-datesetKey
   array-in-file generated from processing occurrence.txt, which contains the
   only link between gbifId and datasetKey.
 
   Assumptions:
   - occurrence_split has successfully run against occurrence.txt.
-  - gbifIds in verbatim.txt are a subset of those in occurrence.txt
+  - gbifIds in multimedia.txt are a subset of those in occurrence.txt
   - gbifIds uniquely map to a single GBIF datasetKey
 */
 
@@ -52,21 +52,21 @@ dRead.on('line', function (row) {
   dKey = mod[1];
   gbifArr[gbifId] = dKey;
 
-  console.log(`${idx} | gbifId: ${gbifId} | datasetKey: ${dKey}`);
+  //console.log(`${idx} Adding multimedia file for gbifId: ${gbifId} to datasetKey: ${dKey}`);
 });
 
-//when the gibfId-to-datasetKey file is done loading, process verbatim.txt
+//when the gibfId-to-datasetKey file is done loading, process multimedia.txt
 dRead.on('close', function() {
   top = "";
   idx = 0;
 
   var vRead = readline.createInterface({
-    input: fs.createReadStream(`${dDir}/verbatim.txt`)
+    input: fs.createReadStream(`${dDir}/multimedia.txt`)
   });
 
   vRead.on('line', function (row) {
       if (idx == 0) {
-        top = row; //save the 1st row for each dKey/verbatim.txt
+        top = row; //save the 1st row for each dKey/multimedia.txt
       } else {
         //<field index="0" term="http://rs.gbif.org/terms/1.0/gbifID"/>
         arr = row.split("\t");
@@ -75,15 +75,20 @@ dRead.on('close', function() {
         gbifId = mod[0];
         dKey = gbifArr[gbifId];
 
-        console.log(`${idx} | verbatim.txt | ${dKey} | ${gbifId}`);
+        //console.log(`${idx} | multimedia.txt | ${dKey} | ${gbifId}`);
 
         //look for already-open dKey write stream
         if (!wStream[dKey]) {
-          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/verbatim.txt`);
+          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/multimedia.txt`);
           wStream[dKey].write(`${top}\n`);
         }
         wStream[dKey].write(`${row}\n`);
       }
       idx++;
   });
+  
+  vRead.on('close', function() {
+    console.log(`Done reading aggregate multimedia.txt`);
+  });
+
 });

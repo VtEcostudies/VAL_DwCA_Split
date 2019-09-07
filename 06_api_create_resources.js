@@ -11,7 +11,7 @@
   - use config.js to define a local folder holding source data, remote url hosting collectory API
   - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
   - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
-  - Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gather from GBIF
+  - Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gathered from GBIF
   - Zip DwCA dataset files into archive named 'datasetKey.zip'
   - Upload DwCA archive to LA Collectory node public folder (eg. 'gbif_split')
 
@@ -47,10 +47,8 @@ var Request = require('request');
 
 console.log(`config paths: ${JSON.stringify(paths)}`);
 
-var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
-//var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
 var dArr = [];
 var idx = 0; //file row index
 var dRead = readline.createInterface({
@@ -64,7 +62,6 @@ dRead.on('line', function (row) {
   var mod = arr.slice(); //using .slice() copies by value, not by reference
 
   var dKey = mod[0];
-  //dKeyArr[dKey] = mod[1];
   dArr[idx] = dKey;
 
   console.log(`read line: ${idx} datasetKey: ${dKey}`);
@@ -205,7 +202,7 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       ],
       "connectionParameters": {
           "protocol": "DwCA",
-          "url": `${urls.collectory}/archives/gbif-split/${gbif.key}.zip`,
+          "url": `${urls.primary}/gbif-split/${gbif.key}.zip`,
           "termsForUniqueKey": [
               "gbifID"
           ]

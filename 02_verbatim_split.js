@@ -5,16 +5,16 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: multimedia_split.js
+  File: verbatim_split.js
 
   Specifics:
-  Split multimedia.txt into datasetKey directories using gbifId-to-datesetKey
+  Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey
   array-in-file generated from processing occurrence.txt, which contains the
   only link between gbifId and datasetKey.
 
   Assumptions:
   - occurrence_split has successfully run against occurrence.txt.
-  - gbifIds in multimedia.txt are a subset of those in occurrence.txt
+  - gbifIds in verbatim.txt are a subset of those in occurrence.txt
   - gbifIds uniquely map to a single GBIF datasetKey
 */
 
@@ -30,12 +30,10 @@ var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
 var wStream = []; //array of write streams, one for each datasetKey
 var gbifArr = []; //array of gbifIds, value is datasetKey
-var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
 var idx = 0; //file row index
 var top = ""; //1st line in file - field names
 var arr = [];
 var mod = null;
-var gbifObj = {};
 var gbifId = 0;
 var dKey = "";
 var dRead = readline.createInterface({
@@ -52,21 +50,21 @@ dRead.on('line', function (row) {
   dKey = mod[1];
   gbifArr[gbifId] = dKey;
 
-  console.log(`${idx} | gbifId: ${gbifId} | datasetKey: ${dKey}`);
+  //console.log(`${idx} Split verbatim.txt for gbifId: ${gbifId} into datasetKey: ${dKey}`);
 });
 
-//when the gibfId-to-datasetKey file is done loading, process multimedia.txt
+//when the gibfId-to-datasetKey file is done loading, process verbatim.txt
 dRead.on('close', function() {
   top = "";
   idx = 0;
 
   var vRead = readline.createInterface({
-    input: fs.createReadStream(`${dDir}/multimedia.txt`)
+    input: fs.createReadStream(`${dDir}/verbatim.txt`)
   });
 
   vRead.on('line', function (row) {
       if (idx == 0) {
-        top = row; //save the 1st row for each dKey/multimedia.txt
+        top = row; //save the 1st row for each dKey/verbatim.txt
       } else {
         //<field index="0" term="http://rs.gbif.org/terms/1.0/gbifID"/>
         arr = row.split("\t");
@@ -75,11 +73,11 @@ dRead.on('close', function() {
         gbifId = mod[0];
         dKey = gbifArr[gbifId];
 
-        console.log(`${idx} | multimedia.txt | ${dKey} | ${gbifId}`);
+        //console.log(`${idx} | verbatim.txt | ${dKey} | ${gbifId}`);
 
         //look for already-open dKey write stream
         if (!wStream[dKey]) {
-          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/multimedia.txt`);
+          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/verbatim.txt`);
           wStream[dKey].write(`${top}\n`);
         }
         wStream[dKey].write(`${row}\n`);
