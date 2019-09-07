@@ -27,7 +27,7 @@
 //https://nodejs.org/api/readline.html
 var readline = require('readline');
 var fs = require('fs');
-var paths = require('./config').paths;
+var paths = require('./00_config').paths;
 var Request = require("request");
 
 console.log(`config paths: ${JSON.stringify(paths)}`);

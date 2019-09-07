@@ -30,7 +30,7 @@
 //https://nodejs.org/api/readline.html
 var readline = require('readline');
 var fs = require('fs');
-var paths = require('./config').paths;
+var paths = require('./00_config').paths;
 
 console.log(`config paths: ${JSON.stringify(paths)}`);
 
@@ -45,7 +45,6 @@ var idx = 0; //file row index
 var top = ""; //1st line in file - field names
 var arr = [];
 var mod = null;
-var gbifObj = {};
 var gbifId = 0;
 var dKey = "";
 

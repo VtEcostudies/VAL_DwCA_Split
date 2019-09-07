@@ -41,8 +41,8 @@
 */
 var readline = require('readline');
 var fs = require('fs');
-var paths = require('./config').paths;
-var urls =  require('./config').urls;
+var paths = require('./00_config').paths;
+var urls =  require('./00_config').urls;
 var Request = require('request');
 
 console.log(`config paths: ${JSON.stringify(paths)}`);

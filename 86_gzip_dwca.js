@@ -7,7 +7,7 @@ scp -i "C:\Users\jloomis\.ssh\vce_live_aws_key_pair.pem" ./*.tar.gz ubuntu@vtatl
 const fs = require('fs');
 var readline = require('readline');
 const child_process = require("child_process");
-var paths = require('./config').paths;
+var paths = require('./00_config').paths;
 
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 

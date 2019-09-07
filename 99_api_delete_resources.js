@@ -39,19 +39,12 @@ var Request = require('request');
 
 console.log(`config paths: ${JSON.stringify(paths)}`);
 
-var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
-var wsCitations = []; //array of write streams, one for each datasetKey
-var wsRights = []; //array of write streams, rights.txt
-var gbifArr = []; //array of gbifIds, value is datasetKey
 var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
 var idx = 0; //file row index
-var top = ""; //1st line in file - field names
 var arr = [];
 var mod = null;
-var gbifObj = {};
-var gbifId = 0;
 var dKey = "";
 var dRead = readline.createInterface({
   input: fs.createReadStream(`${sDir}/datasetKey_gbifArray.txt`)
