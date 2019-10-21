@@ -57,11 +57,16 @@ function createNextZip(cnt) {
     console.log(`${cnt} closed. ${archive[cnt].pointer()} total bytes.`);
     //console.log('archiver has been finalized and the output file descriptor has closed.');
     cnt++;
-    if (cnt <= dArr.length) {
+    if (cnt < dArr.length) {
       createNextZip(cnt); //recursion...
     } else {
-      console.log(`Finished Zipping last folder: ${cnt}`);
+      console.log(`Finished Zipping last folder: ${cnt-1}`);
     }
+  });
+
+  //registering this event callback does nothing... the API says is should...?
+  output[cnt].on('progress', function(entries, fs) {
+    console.log(`${cnt} Progress: ${entries.processed} entries, ${fs.totalBytes} bytes`);
   });
   
   // This event is fired when the data source is drained no matter what was the data source.

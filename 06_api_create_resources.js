@@ -6,7 +6,7 @@
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
   File: sync_create_resources.js
-  
+
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
   - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
@@ -24,7 +24,7 @@
 
   val-docker (spring of 2019):
   http://beta.vtatlasoflife.org/collectory/ws/{resourceType}/{typeId}
-  
+
   val-ansible-production (fall of 2019):
   https://collectory.vtatlasoflife.org/ws/{}/{}
 
@@ -70,6 +70,12 @@ dRead.on('line', function (row) {
 dRead.on('close', async function() {
   var gbif = null;
   var alaDR = [];
+  /*
+    Note: A simple for loop is synchronous, which is critical for proper API updates.
+    I tried for days to make an asynchrous loop (array.forEach()) do synchronous
+    stepwise API updates, and couldn't. A random search on Stack Overflow found
+    a comment about synch vs async loop structure. Voila.
+  */
   for (var idx=1; idx < dArr.length; idx++) {
     gbif = await getGbifDataset(idx, dArr[idx]);
     if (gbif) {
@@ -126,13 +132,13 @@ function getAlaDataResource(idx, dKey) {
 
 function postAlaDataResource(idx, dKey, gbif) {
   var pBody = gbifToAlaDataset(gbif); //POST Body - create data format for LA Collectory from GBIF
-  
+
   var parms = {
     url: `${urls.collectory}/ws/dataResource`,
     body: pBody,
     json: true
   };
-  
+
   return new Promise((resolve, reject) => {
     Request.post(parms, (err, res, body) => {
       console.log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
@@ -147,13 +153,13 @@ function postAlaDataResource(idx, dKey, gbif) {
 
 function putAlaDataResource(idx, dKey, alaDR, gbif) {
   var pBody = gbifToAlaDataset(gbif, alaDR); //PuT Body - create data format for LA Collectory from GBIF
-  
+
   var parms = {
     url: `${urls.collectory}/ws/dataResource/${alaDR.uid}`,
     body: pBody,
     json: true
   };
-  
+
   return new Promise((resolve, reject) => {
     Request.put(parms, (err, res, body) => {
       console.log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
