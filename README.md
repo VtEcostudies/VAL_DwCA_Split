@@ -79,7 +79,7 @@ Specifics:
 - use config.js to define a local folder holding source data, remote url hosting collectory API
 - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
 - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
-- Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gather from GBIF
+- Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gathered from GBIF
 - Zip DwCA dataset files into archive named 'datasetKey.zip'
 - Upload DwCA archive to LA Collectory node public folder (eg. 'gbif_split')
 
