@@ -1,7 +1,7 @@
 Project: gbif_dwca_split
 
 Purpose:
-  1) Parse aggregate GBIF download DWcA into individual datasets/providers.
+  1) Parse aggregate GBIF download DwCA into individual datasets/providers.
   2) Using processed files from (1), parse metadata, citations, etc. into files pertaining just
   to their dataset's data into separate folders named 'datasetKey'.
   3) Using processed files from (1), parse verbatim.txt similar to occurrence.txt.
@@ -79,7 +79,7 @@ Specifics:
 - use config.js to define a local folder holding source data, remote url hosting collectory API
 - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
 - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
-- Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gather from GBIF
+- Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gathered from GBIF
 - Zip DwCA dataset files into archive named 'datasetKey.zip'
 - Upload DwCA archive to LA Collectory node public folder (eg. 'gbif_split')
 
