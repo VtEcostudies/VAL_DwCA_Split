@@ -22,9 +22,6 @@
 var readline = require('readline');
 var fs = require('fs');
 var paths = require('./00_config').paths;
-
-console.log(`config paths: ${JSON.stringify(paths)}`);
-
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
@@ -36,6 +33,10 @@ var arr = [];
 var mod = null;
 var gbifId = 0;
 var dKey = "";
+var logToConsole = false; //console logging slows processing a lot
+
+log(`config paths: ${JSON.stringify(paths)}`);
+
 var dRead = readline.createInterface({
   input: fs.createReadStream(`${sDir}/gbifId_datasetKey.txt`)
 });
@@ -73,15 +74,28 @@ dRead.on('close', function() {
         gbifId = mod[0];
         dKey = gbifArr[gbifId];
 
-        //console.log(`${idx} | verbatim.txt | ${dKey} | ${gbifId}`);
+        //log(`${idx} | verbatim.txt | ${dKey} | ${gbifId}`);
 
         //look for already-open dKey write stream
         if (!wStream[dKey]) {
           wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/verbatim.txt`);
           wStream[dKey].write(`${top}\n`);
+          log(`${idx} | verbatim.txt | ${dKey}`, true);
         }
         wStream[dKey].write(`${row}\n`);
       }
       idx++;
   });
 });
+
+async function log(txt, override=false) {
+  try {
+    if (logToConsole || override) {console.log(txt);}
+    if (!wStream['log']) {
+      wStream['log'] = await fs.createWriteStream(`${sDir}/verbatim_split.log`);
+    }
+    wStream['log'].write(txt + '\n');
+  } catch(err) {
+    throw err;
+  }
+}

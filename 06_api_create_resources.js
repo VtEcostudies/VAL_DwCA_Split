@@ -44,13 +44,18 @@ var fs = require('fs');
 var paths = require('./00_config').paths;
 var urls =  require('./00_config').urls;
 var Request = require('request');
-
-console.log(`config paths: ${JSON.stringify(paths)}`);
+const moment = require('moment');
 
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
-
+var logFile = `${moment().format('YYYYMMDD-HHMMSS')}_api_create_resources.log`;
+var logToConsole = true; //console logging is OK here, speed is dictated by synchronous API calls
+var wStream = [];
 var dArr = [];
 var idx = 0; //file row index
+var dryRun = false;
+
+log(`config paths: ${JSON.stringify(paths)}`);
+
 var dRead = readline.createInterface({
   input: fs.createReadStream(`${sDir}/datasetKey_gbifArray.txt`)
 });
@@ -64,7 +69,7 @@ dRead.on('line', function (row) {
   var dKey = mod[0];
   dArr[idx] = dKey;
 
-  console.log(`read line: ${idx} datasetKey: ${dKey}`);
+  log(`read line: ${idx} datasetKey: ${dKey}`);
 });
 
 dRead.on('close', async function() {
@@ -76,19 +81,25 @@ dRead.on('close', async function() {
     stepwise API updates, and couldn't. A random search on Stack Overflow found
     a comment about synch vs async loop structure. Voila.
   */
-  for (var idx=1; idx < dArr.length; idx++) {
+  for (var idx=1; idx < (dryRun?10:dArr.length); idx++) { //for testing...
     gbif = await getGbifDataset(idx, dArr[idx]);
     if (gbif) {
-      console.log('GBIF Dataset Title:', gbif.title);
+      log(`GBIF Dataset Title: ${gbif.title}`);
       alaDR = await getAlaDataResource(idx, dArr[idx]);
-      if (alaDR.length == 0) {
-        console.log('ALA Data Resource NOT found.');
-        await postAlaDataResource(idx, dArr[idx], gbif);
-      } else if (alaDR.length == 1) {
-        console.log('ALA Data Resource UID:', alaDR[0].uid);
-        await putAlaDataResource(idx, dArr[idx], alaDR[0], gbif);
-      } else {
-        console.log(`ERROR: ALA Data Resource GUID ${dArr[idx]} has ${alaDR.length} entries.`);
+      if (!dryRun) {
+        if (alaDR.length == 0) {
+          log('ALA Data Resource NOT found.');
+          await postAlaDataResource(idx, dArr[idx], gbif);
+        } else if (alaDR.length == 1) {
+          log(`ALA Data Resource | UID: ${alaDR[0].uid} | resourceType: ${test.resourceType} | contentTypes: ${test.contentTypes}`);
+          await putAlaDataResource(idx, dArr[idx], alaDR[0], gbif);
+        } else {
+          log(`ERROR: ALA Data Resource GUID ${dArr[idx]} has ${alaDR.length} entries.`);
+        }
+      } else { //dryRun - test output
+        var test = gbifToAlaDataset(gbif, alaDR);
+        log(`resourceType: ${test.resourceType}`);
+        log(`contentTypes: ${test.contentTypes}`);
       }
     }
   }
@@ -102,9 +113,11 @@ function getGbifDataset(idx, dKey) {
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      console.log(`GBIF Dataset | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
-      if (err || res.statusCode > 399) {
+      log(`GBIF Dataset | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      if (err) {
         reject(err);
+      } else if (res.statusCode > 399) {
+        reject(body);
       } else {
         resolve(body);
       }
@@ -120,9 +133,10 @@ function getAlaDataResource(idx, dKey) {
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      console.log(`GET ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`GET ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
-        reject(err);
+        log(`ERROR | in getAlaDataResource | err:${err?err:undefined} | result:${res?res.statusCode:undefined}`);
+        reject([]); //expecting an array returned...
       } else {
         resolve(body);
       }
@@ -141,7 +155,7 @@ function postAlaDataResource(idx, dKey, gbif) {
 
   return new Promise((resolve, reject) => {
     Request.post(parms, (err, res, body) => {
-      console.log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
         reject(err);
       } else {
@@ -162,7 +176,7 @@ function putAlaDataResource(idx, dKey, alaDR, gbif) {
 
   return new Promise((resolve, reject) => {
     Request.put(parms, (err, res, body) => {
-      console.log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
         reject(err);
       } else {
@@ -173,6 +187,13 @@ function putAlaDataResource(idx, dKey, alaDR, gbif) {
 }
 
 function gbifToAlaDataset(gbif, alaDR={}) {
+  var resourceType = 'records';
+
+  //some values need processing. do that first.
+  resourceType = gbif.type=='CHECKLIST'?'species-list':
+                (gbif.type=='OCCURRENCE'?'records':
+                (gbif.type=='SAMPLING_EVENT'?'records':'records'));
+
   // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
   var ala = {
       "name": `${gbif.title} (Vermont)`,
@@ -197,13 +218,12 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "licenseType": "",
       "licenseVersion": "",
       "citation": gbif.citation.text,
-      "resourceType": "records",
+      "resourceType": resourceType,
       "dataGeneralizations": "",
       "informationWithheld": "",
       "permissionsDocument": "",
       "permissionsDocumentType": "Other",
       "contentTypes": [
-          "point occurrence data",
           "gbif import"
       ],
       "connectionParameters": {
@@ -230,5 +250,36 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "doi": gbif.doi //this does not work - cannot set via the API
   };
 
+  switch(gbif.type) {
+    case 'OCCURRENCE':
+      ala.contentTypes.push("point occurrence data");
+      break;
+    case 'SAMPLING_EVENT':
+      ala.contentTypes.push("point occurrence data");
+      break;
+    case 'CHECKLIST':
+      ala.contentTypes.push("species-list");
+      break;
+  }
+
   return ala;
+}
+
+async function log(txt, override=false) {
+  try {
+    if (logToConsole || override) {console.log(txt);}
+    if (!wStream['log']) {
+      wStream['log'] = await fs.createWriteStream(`${sDir}/${logFile}`);
+    }
+    if (typeof txt == 'object') { //handles arrays and objects
+      var obj = txt;
+      txt = '';
+      for (key in obj) {
+        txt += `${key}:${obj[key]}\n`;
+      }
+    }
+    wStream['log'].write(txt + '\n');
+  } catch(error) {
+    console.log(`log error: ${error}`);
+  }
 }

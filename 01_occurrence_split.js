@@ -32,7 +32,7 @@ var readline = require('readline');
 var fs = require('fs');
 var paths = require('./00_config').paths;
 
-console.log(`config paths: ${JSON.stringify(paths)}`);
+log(`config paths: ${JSON.stringify(paths)}`);
 
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
@@ -47,13 +47,16 @@ var arr = [];
 var mod = null;
 var gbifId = 0;
 var dKey = "";
+var logToConsole = false; //console logging slows processing a lot
+
+wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
 
 var fRead = readline.createInterface({
   input: fs.createReadStream(`${dDir}/occurrence.txt`)
 });
 
 //read occurrence.txt
-fRead.on('line', function (row) {
+fRead.on('line', async function (row) {
     if (idx == 0) {
       top = row; //save the 1st row for each dKey/occurrenct.txt
     } else {
@@ -63,17 +66,16 @@ fRead.on('line', function (row) {
       mod = arr.slice(); //using .slice() copies by value, not by reference
       gbifId = mod[0];
       dKey = mod[206];
-      //console.log(`gbifId: ${gbifId} | datasetKey: ${dKey}`);
 
       //make gbifArr[gbifId] = dKey
       gbifArr[gbifId] = dKey;
-      //look for already-open gbifArr write stream
+      //look for already-open gbifArr write stream. if not, wait for it to open.
       if (!wStream['gbifArr']) {
-        wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
+        wStream['gbifArr'] = await fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
       }
       //immediately write to file (assumed unique)
       wStream['gbifArr'].write(`${gbifId}:${dKey}\n`);
-      console.log(`${idx} | ${gbifId} | ${dKey}`);
+      log(`${idx} | ${gbifId} | ${dKey}`);
 
       //create dKey and dKey/data directories (in one go) if they don't exist
       //fs.mkdir(`${sDir}/${dKey}/dataset`, {recursive:true}, (err) => {
@@ -93,15 +95,15 @@ fRead.on('line', function (row) {
 
           fs.copyFile(`${dDir}/dataset/${dKey}.xml`, `${sDir}/${dKey}/dataset/${dKey}.xml`, (err) => {
             if (err) throw err;
-            console.log(`Copied ${dDir}/dataset/${dKey}.xml ==> ${sDir}/${dKey}/dataset/${dKey}.xml`);
+            log(`Copied ${dDir}/dataset/${dKey}.xml ==> ${sDir}/${dKey}/dataset/${dKey}.xml`, true);
           });
           fs.copyFile(`${dDir}/meta.xml`, `${sDir}/${dKey}/meta.xml`, (err) => {
             if (err) throw err;
-            console.log(`Copied ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`);
+            log(`Copied ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`, true);
           });
           fs.copyFile(`${dDir}/metadata.xml`, `${sDir}/${dKey}/metadata.xml`, (err) => {
             if (err) throw err;
-            console.log(`Copied ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);
+            log(`Copied ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`, true);
           });
         } else {
           // make dKeyArr[dKey] = [gbifId, gbifId, ...]
@@ -110,7 +112,7 @@ fRead.on('line', function (row) {
 
         //look for already-open dKey write stream. create if not.
         if (!wStream[dKey]) {
-          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
+          wStream[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
           wStream[dKey].write(`${top}\n`);
         }
         //write occurrence row to datasetKey/occurrence.txt
@@ -122,28 +124,27 @@ fRead.on('line', function (row) {
 });
 
 //when occurrence.txt is done, put dKeyArr to file
-fRead.on('close', function() {
+fRead.on('close', async function() {
   //look for already-open dKeyArr write stream
   if (!wStream['dKeyGbifArr']) {
-    wStream['dKeyGbifArr'] = fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
+    wStream['dKeyGbifArr'] = await fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
   }
 
   //put dKeyArr to file
   Object.keys(dKeyArr).forEach(function(key) {
-    console.log(`${key}:${dKeyArr[key]}\n`);
+    log(`${key}:${dKeyArr[key]}\n`);
     wStream['dKeyGbifArr'].write(`${key}:${dKeyArr[key]}\n`);
   });
 });
 
-//mod.splice(1, 1, `ITIS-${mod[1]}`);
-//var out = mod.join("\t");
-/*
-      //Important NOTE: none of this worked until we invoked mod=arr.slice() above
-      gbifObj = `{${gbifId}: ${dKey}}`;
-      //gbifObj = JSON.stringify(gbifObj);
-      //console.log(gbifObj);
-      if (!wStream['gbifJson']) {
-        wStream['gbifJson'] = fs.createWriteStream(`gbifId_datasetKey.json`);
-      }
-      wStream['gbifJson'].write(`${gbifObj}\n`);
-*/
+async function log(txt, override=false) {
+  try {
+    if (logToConsole || override) {console.log(txt);}
+    if (!wStream['log']) {
+      wStream['log'] = await fs.createWriteStream(`${sDir}/occurrence_split.log`);
+    }
+    wStream['log'].write(txt + '\n');
+  } catch(err) {
+    throw err;
+  }
+}

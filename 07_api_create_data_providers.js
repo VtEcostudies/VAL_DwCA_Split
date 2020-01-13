@@ -3,21 +3,25 @@
 
   Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
-  Goal being then to ingest each dataset into VAL as a separate data resource.
+  Goal being then to ingest each dataset into VAL as a separate data resource,
+  and to ingest each provider of those datasets as well.
 
-  File: api_create_others.js
+  File: api_create_data_providers.js
 
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
   - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
   - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
+  - extract publishingOrganizationKey from dataset
   - Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gathered from GBIF
   - Zip DwCA dataset files into archive named 'datasetKey.zip'
   - Upload DwCA archive to LA Collectory node public folder (eg. 'gbif_split')
 
-  ToDo:
-  - zip DwCA dataset files into archive named 'datasetKey.zip'
-  - upload data file to the server for ingestion
+  Notes:
+  In the future, we can also iterate over dataProviders, if we have stored their orgKey, and list
+  all datasets:
+
+  eg. https://api.gbif.org/v1/dataset/search?publishingOrg=b6d09100-919d-4026-b35b-22be3dae7156
 
   Notes:
   For each datasetKey, POST/PUT to the VAL API:
@@ -68,8 +72,10 @@ dRead.on('line', function (row) {
 });
 
 dRead.on('close', async function() {
-  var gbifDataSet = null;
+  var gbifDataset = null;
   var gbifPublOrg = null;
+  var gbifInstall = null; //gbif API IPT data
+  var valDR = [];
   var valDP = [];
   /*
     Main loop.
@@ -80,28 +86,35 @@ dRead.on('close', async function() {
     a comment about synch vs async loop structure. Voila.
 
     We have to query the GBIF DataSet to get publishingOrganizationKey:
-    getGbifDataset
+    GetGbifDataset
       ==> extract publishingOrganizationKey
-    getGbifPublisher
+    GetGbifPublisher
 
   */
   for (var idx=1; idx < dArr.length; idx++) {
-    gbifDataSet = await getGbifDataset(idx, dArr[idx]);
-    if (gbifDataSet) {
-      if (gbifPublOrg) {
+    gbifDataset = await GetGbifDataset(idx, dArr[idx]);
+    if (gbifDataset) {
       console.log('GBIF Dataset Title:', gbifDataset.title);
-      gbifPublOrg = await getGbifPublisher(idx, gbifDataset.publishingOrganizationKey);
+      gbifPublOrg = await GetGbifPublisher(idx, gbifDataset.publishingOrganizationKey);
       if (gbifPublOrg) {
-        valDR = await findValDataResource(idx, gbifDataset.key);
-        valDP = await findValDataProvider(idx, gbifPublOrg.key); //key is same as pubOrgKey from DataSet
-        if (valDP.length == 0) {
-          console.log('ALA Data Provider NOT found.');
-          await postValDataProvider(idx, dArr[idx], gbifPublOrg, valDR[0]);
-        } else if (valDP.length == 1) {
-          console.log('ALA Data Provider UID:', valDP[0].uid);
-          await putValDataProvider(idx, dArr[idx], gbifPublOrg, valDR[0], valDP[0]);
+        valDR = await FindValDataResource(idx, gbifDataset.key);
+        valDP = await FindValDataProvider(idx, gbifPublOrg.key); //key is same as pubOrgKey from DataSet
+        if (valDP.length) {
+          valDP = await GetValDataProvider(idx, valDP[0].uid);
+        }
+        gbifInstall = await GetGbifInstallation(idx, gbifPublOrg.key);
+        if (valDR.length > 0) {
+          if (valDP.length == 0) {
+            console.log('VAL Data Provider NOT found.');
+            await PostValDataProvider(idx, dArr[idx], gbifPublOrg, valDR[0], gbifInstall);
+          } else if (valDP.length == 1) {
+            console.log('VAL Data Provider UID:', valDP[0].uid);
+            await PutValDataProvider(idx, dArr[idx], gbifPublOrg, valDR[0], valDP[0], gbifInstall);
+          } else {
+            console.log(`ERROR: VAL Data Provider GUID ${dArr[idx]} has ${valDP.length} entries.`);
+          }
         } else {
-          console.log(`ERROR: ALA Data Provider GUID ${dArr[idx]} has ${valDP.length} entries.`);
+          console.log(`VAL Data Resource for datasetKey ${gbifDataset.key} aka ${dArr[idx]} not found.`);
         }
       }
     }
@@ -110,8 +123,9 @@ dRead.on('close', async function() {
 
 /*
   We use this to get publishingOrganizationKey from datasetKey
+  eg. https://api.gbif.org/v1/dataset/f2faaa4c-74e9-457a-8265-06ef5cc73626
 */
-function getGbifDataset(idx, dataSetKey) {
+function GetGbifDataset(idx, dataSetKey) {
   var parms = {
     url: `http://api.gbif.org/v1/dataset/${dataSetKey}`,
     json: true
@@ -119,7 +133,7 @@ function getGbifDataset(idx, dataSetKey) {
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      console.log(`GBIF Dataset | ${idx} | dataset | ${dataSetKey} | ${res.statusCode}`);
+      console.log(`GetGbifDataset | ${idx} | Dataset Key | ${dataSetKey} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
         reject(err);
       } else {
@@ -129,9 +143,13 @@ function getGbifDataset(idx, dataSetKey) {
   });
 }
 
-//GBIF publishers are just Organizations having credentials?
-//http://api.gbif.org/v1/organization/b6d09100-919d-4026-b35b-22be3dae7156
-function getGbifPublisher(idx, orgKey) {
+/*
+  GBIF publishers are just Organizations having datasets published:
+
+  http://api.gbif.org/v1/organization/b6d09100-919d-4026-b35b-22be3dae7156
+
+*/
+function GetGbifPublisher(idx, orgKey) {
   var parms = {
     url: `http://api.gbif.org/v1/organization/${orgKey}`,
     json: true
@@ -139,10 +157,70 @@ function getGbifPublisher(idx, orgKey) {
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      console.log(`GBIF Publisher | ${idx} | Organization | ${orgKey} | ${res.statusCode}`);
+      console.log(`GBIF Publisher | ${idx} | Organization Key | ${orgKey} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
-        reject(err);
+        console.log(`GetGbifPublisher`, err);
+        reject([]); //return empty array to allow process to proceed. not critical.
       } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+/*
+  GBIF organizations have IPT installations if they've published datasets. Get
+  installation data from organization like this:
+
+  http://api.gbif.org/v1/organization/b6d09100-919d-4026-b35b-22be3dae7156/installation
+
+  ...and return an array of installations (unfortunately).
+
+  The above gets the same results as:
+
+  http://api.gbif.org/v1/installation/5ae8b93d-03d9-48f1-8334-f1f251d13f1f
+
+*/
+function GetGbifInstallation(idx, orgKey) {
+  var parms = {
+    url: `http://api.gbif.org/v1/organization/${orgKey}/installation`,
+    json: true
+  };
+
+  return new Promise((resolve, reject) => {
+    Request.get(parms, (err, res, body) => {
+      console.log(`GetGbifInstallation | ${idx} | Organization | ${orgKey} | ${res.statusCode}`);
+      if (err || res.statusCode > 399) {
+        console.log(`GetGbifInstallation`, err);
+        reject([]); //return empty array to allow process to proceed. not critical.
+      } else {
+        resolve(body);
+      }
+    });
+  });
+}
+
+
+function FindValDataResource(idx, dataSetKey) {
+  var parms = {
+    url: `${urls.collectory}/ws/dataResource?guid=${dataSetKey}`,
+    json: true
+  };
+
+  return new Promise((resolve, reject) => {
+    Request.get(parms, (err, res, body) => {
+      console.log(`FindValDataResource | ${idx} | Dataset Key | ${dataSetKey} | ${res.statusCode}`);
+      if (err) {
+        console.log(`FindValDataResource | ${idx} | Dataset Key | ${dataSetKey} Error:`, err);
+        reject(err);
+      } else if (res.statusCode > 299) {
+        console.log(`FindValDataResource | ${idx} | GBIF DatasetKey: ${dataSetKey} | Bad Result: ${res} | Request Params:`);
+        console.dir(parms);
+        reject(res);
+      } else {
+        console.log(`FindValDataResource | ${idx} | Dataset Key | ${dataSetKey} | body:`);
+        body = body || [];
+        console.dir(body);
         resolve(body);
       }
     });
@@ -158,26 +236,59 @@ A successul VAL guid search for dataProvider will return 3 values:
 "uid":"dp0"
 }]
 */
-function findValDataProvider(idx, dpKey) {
+function FindValDataProvider(idx, orgKey) {
   var parms = {
-    url: `${urls.collectory}/ws/dataProvider?guid=${dpKey}`,
+    url: `${urls.collectory}/ws/dataProvider?guid=${orgKey}`,
     json: true
   };
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      console.log(`GET VAL Data Provider | ${idx} | DataProvider | ${dpKey} | ${res.statusCode}`);
-      if (err || res.statusCode > 399) {
-        reject(err);
+      console.log(`FindValDataProvider | ${idx} | GBIF Org Key | ${orgKey} | ${res.statusCode}`);
+      if (err) {
+        console.log(`FindValDataProvider | ${idx} | GBIF Org Key | ${orgKey} Error:`, err);
+        reject([]);
+      } else if (res.statusCode > 299) {
+        console.log(`FindValDataProvider | ${idx} | GBIF Org Key: ${orgKey} | Bad Result: ${res} | Request Params:`);
+        console.dir(parms);
+        reject(res);
       } else {
+        console.log(`FindValDataProvider | ${idx} | GBIF Org Key | ${orgKey} | body:`);
+        body = body || [];
+        console.dir(body);
         resolve(body);
       }
     });
   });
 }
 
-function postValDataProvider(idx, dpKey, gbif, valDR) {
-  var pBody = gbifToValDataset(gbif, valDR); //POST Body - create data format for LA Collectory from GBIF
+function GetValDataProvider(idx, uid) {
+  var parms = {
+    url: `${urls.collectory}/ws/dataProvider/${uid}`,
+    json: true
+  };
+
+  return new Promise((resolve, reject) => {
+    Request.get(parms, (err, res, body) => {
+      console.log(`GetValDataProvider | ${idx} | VAL uid  | ${uid} | ${res.statusCode}`);
+      if (err) {
+        console.log(`GetValDataProvider | ${idx} | VAL uid | ${uid} Error:`, err);
+        reject([]);
+      } else if (res.statusCode > 299) {
+        console.log(`GetValDataProvider | ${idx} | VAL uid: ${uid} | Bad Result: ${res} | Request Params:`);
+        console.dir(parms);
+        reject(res);
+      } else {
+        body = body || [];
+        resolve(body);
+      }
+    });
+  });
+}
+
+function PostValDataProvider(idx, datasetKey, gbifOrg, valDR, gbifIpt=[]) {
+
+  var pBody = GbifToValDataProvider(gbifOrg, valDR, gbifIpt); //POST Body - create data format for LA Collectory from GBIF
 
   var parms = {
     url: `${urls.collectory}/ws/dataProvider`,
@@ -187,18 +298,27 @@ function postValDataProvider(idx, dpKey, gbif, valDR) {
 
   return new Promise((resolve, reject) => {
     Request.post(parms, (err, res, body) => {
-      console.log(`POST ALA Data Resource | ${idx} | dataset | ${dpKey} | ${res.statusCode}`);
-      if (err || res.statusCode > 399) {
+      console.log(`PostValDataProvider | ${idx} | GBIF Org Key | ${gbifOrg.key} | ${res.statusCode}`);
+      if (err) {
+        console.log(`PostValDataProvider | ${idx} | GBIF Org | ${gbifOrg.title} Error:`, err);
         reject(err);
+      } else if (res.statusCode > 299) {
+        console.log(`PostValDataProvider | ${idx} | GBIF Org | ${gbifOrg.title} Bad Result | Request:`);
+        console.dir(parms);
+        console.dir(body);
+        reject(res);
       } else {
+        console.log(`PostValDataProvider | ${idx} | GBIF Org | ${gbifOrg.title} Error:`, err);
+        reject(err);
         resolve(body);
       }
     });
   });
 }
 
-function putValDataProvider(idx, datasetKey, gbif, valDR, valDP) {
-  var pBody = gbifToValDataset(gbif, valDR, valDP); //PUT Body - create data format for LA Collectory from GBIF
+function PutValDataProvider(idx, datasetKey, gbifOrg, valDR, valDP, gbifIpt=[]) {
+
+  var pBody = GbifToValDataProvider(gbifOrg, valDR, valDP, gbifIpt); //PUT Body - create data format for LA Collectory from GBIF
 
   var parms = {
     url: `${urls.collectory}/ws/dataProvider/${valDP.uid}`,
@@ -208,9 +328,14 @@ function putValDataProvider(idx, datasetKey, gbif, valDR, valDP) {
 
   return new Promise((resolve, reject) => {
     Request.put(parms, (err, res, body) => {
-      console.log(`PUT VAL Data Provider | ${idx} | dataset | ${datasetKey} | dataProvider | ${valDP.uid} | ${res.statusCode}`);
-      if (err || res.statusCode > 399) {
+      console.log(`PutValDataProvider | ${idx} | GBIF Org Key | ${gbifOrg.key} | VAL dataProvider: ${valDP.uid} | ${res.statusCode}`);
+      if (err) {
+        console.log(`PutValDataProvider | ${idx} | GBIF Org | ${gbifOrg.title} | VAL dataProvider: ${valDP.uid} Error:`, err);
         reject(err);
+      } else if (res.statusCode > 299) {
+        console.log(`PutValDataProvider | ${idx} | VAL dataProvider: ${valDP.uid} | Bad Result: ${res} | Requst Params:`);
+        console.dir(parms);
+        reject(res);
       } else {
         resolve(body);
       }
@@ -224,34 +349,37 @@ http://api.gbif.org/v1/organization/b6d09100-919d-4026-b35b-22be3dae7156
 inputs:
   gbif: the result from GBIF Org API
   valDR: the result from VAL dataResource api for one GBIF dataSet GUID
-  valDP: the result from VAL dataProvider api
+  valDP: the result from VAL dataProvider api for one GBIF dataProvider GUID
 
 NOTE: we may need to append DRs in valDR to DRs in valDP.
 */
 
-function gbifToValDataProvider(gbif, valDR={}, valDP={}) {
+function GbifToValDataProvider(gbifOrg, valDR={}, valDP={}, gbifIpt=[]) {
   // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
-  var valDP = {
-    "name":gbif.title, //"Vermont Center for Ecostudies",
-    "acronym":"",//"VCE",
-    //"uid":"dp0",
-    "guid":gbif.key,
-    "address":gbif.address[0] + gbif.city + gbif.province + gbif.postalCode + gbif.country,
-    "phone":gbif.phone,
-    "email":gbif.email,
-    "pubShortDescription":null,
-    "pubDescription":gbif.description,
-    "techDescription":null,
-    "focus":null,
-    "state":null,
-    "websiteUrl":"http://ipt.vtecostudies.org",
-    //"alaPublicUrl":"https://collectory.vtatlasoflife.org/public/show/dp0",
-    "networkMembership":null,
-    "attributions":[],
-    //"dateCreated":"2019-10-07T15:01:53Z",
-    //"lastUpdated":"2019-10-07T17:34:42Z",
-    //"userLastModified":"jloomis@vtecostudies.org",
-    "dataResources":[
+  //var valDP = {
+    valDP.name = gbifOrg.title; //"Vermont Center for Ecostudies",
+    valDP.acronym = "";//"VCE",
+    //"uid = "dp0";
+    valDP.guid = gbifOrg.key;
+    valDP.address = gbifOrg.address[0] + gbifOrg.city + gbifOrg.province + gbifOrg.postalCode + gbifOrg.country;
+    valDP.phone = gbifOrg.phone;
+    valDP.email = gbifOrg.email;
+    valDP.pubShortDescription = null;
+    valDP.pubDescription = gbifOrg.description;
+    valDP.techDescription = null;
+    valDP.focus = null;
+    valDP.state = gbifOrg.province;
+    if (gbifIpt.length > 0) {
+      valDP.websiteUrl = gbifIpt.url.endpoints[0].url; //"http://ipt.vtecostudies.org";
+    }
+    //valDP.alaPublicUrl = "https://collectory.vtatlasoflife.org/public/show/dp0";
+    valDP.networkMembership = null;
+    valDP.attributions = [];
+    //"dateCreated = "2019-10-07T15:01:53Z";
+    //"lastUpdated = "2019-10-07T17:34:42Z";
+    //"userLastModified = "jloomis@vtecostudies.org";
+    /*
+    "dataResources = [
       {
         "name":"Records of Hawk Moths (Sphingidae) from Vermont, USA",
         "uri":"https://collectory.vtatlasoflife.org/ws/dataResource/dr410",
@@ -259,15 +387,20 @@ function gbifToValDataProvider(gbif, valDR={}, valDP={}) {
         //"id":430
       }
     ],
-    "gbifRegistryKey":gbif.key
-  };
+    */
+    const newDR = {
+      "name":valDR.name,
+      "uri":valDR.uri,
+      "uid":valDR.uid
+      };
 
+    if (valDP.dataResources) {
+      valDP.dataResources.push(newDR);
+    } else {
+      valDP.dataResources = newDR;
+    }
 
-  valDP.dataResources.push({
-    name:valDR.name,
-    uri:valDR.uri,
-    uid:valDR.uid
-  });
+    valDP.gbifRegistryKey = gbifOrg.key;
 
   return valDP;
 }

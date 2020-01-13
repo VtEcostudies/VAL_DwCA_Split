@@ -2,7 +2,6 @@
 Upload gzip files to server with scp:
 
 scp -i "C:\Users\jloomis\.ssh\vce_live_aws_key_pair.pem" ./*.zip ubuntu@vtatlasoflife.org:/srv/vtatlasoflife.org/www/gbif-split
-
 */
 var fs = require('fs');
 var archiver = require('archiver');
@@ -42,7 +41,7 @@ dRead.on('close', async function() {
 });
 
 function createNextZip(cnt) {
-    
+
   console.log(`${cnt} Zipping contents of ${dArr[cnt]} into ${dArr[cnt]}.zip...`);
 
   // create the next file to stream archive data to, and the archiver to do the job.
@@ -50,7 +49,7 @@ function createNextZip(cnt) {
   archive[cnt] = archiver('zip', {
     zlib: { level: 9 } // Sets the compression level.
   });
-  
+
   // listen for all archive data to be written
   // 'close' event is fired only when a file descriptor is involved
   output[cnt].on('close', function() {
@@ -64,18 +63,18 @@ function createNextZip(cnt) {
     }
   });
 
-  //registering this event callback does nothing... the API says is should...?
+  //registering this event callback does nothing... the API says it should...?
   output[cnt].on('progress', function(entries, fs) {
     console.log(`${cnt} Progress: ${entries.processed} entries, ${fs.totalBytes} bytes`);
   });
-  
+
   // This event is fired when the data source is drained no matter what was the data source.
   // It is not part of this library but rather from the NodeJS Stream API.
   // @see: https://nodejs.org/api/stream.html#stream_event_end
   output[cnt].on('end', function() {
     console.log('Data has been drained');
   });
-   
+
   // good practice to catch warnings (ie stat failures and other non-blocking errors)
   archive[cnt].on('warning', function(err) {
     if (err.code === 'ENOENT') {
@@ -86,7 +85,7 @@ function createNextZip(cnt) {
       throw err;
     }
   });
-   
+
   // good practice to catch this error explicitly
   archive[cnt].on('error', function(err) {
     throw err;
@@ -97,7 +96,7 @@ function createNextZip(cnt) {
 
   // append files from a sub-directory, putting its contents at the root of archive
   archive[cnt].directory(`${sDir}/${dArr[cnt]}/`, false);
-   
+
   // finalize the archive (ie we are done appending files but streams have to finish yet)
   // 'close', 'end' or 'finish' may be fired right after calling this method so register to them beforehand
   archive[cnt].finalize();

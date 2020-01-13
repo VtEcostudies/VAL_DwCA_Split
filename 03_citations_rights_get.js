@@ -29,16 +29,17 @@ var readline = require('readline');
 var fs = require('fs');
 var paths = require('./00_config').paths;
 var Request = require("request");
-
-console.log(`config paths: ${JSON.stringify(paths)}`);
+const moment = require('moment');
 
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
 var wsCitations = []; //array of write streams, one for each datasetKey
 var wsRights = []; //array of write streams, rights.txt
+var wStream = []; //array of generic write streams (log)
 var gbifArr = []; //array of gbifIds, value is datasetKey
 var dKeyArr = {}; //object as array of datasetKeys. value is array of gbifIds
+var wRead = null; //file read object
 var idx = 0; //file row index
 var top = ""; //1st line in file - field names
 var arr = [];
@@ -46,12 +47,39 @@ var mod = null;
 var gbifObj = {};
 var gbifId = 0;
 var dKey = "";
-var dRead = readline.createInterface({
-  input: fs.createReadStream(`${sDir}/datasetKey_gbifArray.txt`)
+var logFile = "citations_rights_get.log";
+var errFile = "citations_rights_get.err";
+var logToConsole = true; //console logging slows processing a lot
+var processErrors = fs.existsSync(`${sDir}/${errFile}`); //check for error file from previous run
+
+log(`config paths: ${JSON.stringify(paths)}`, true);
+
+/*
+  On clean exit, if we processed an error file, rename it.
+*/
+process.on('exit', function(code) {
+  if (processErrors) {
+    wRead.close();
+    var newErrFile = `processed_${moment().format('YYYYMMDD-HHMMSS')}_${errFile}`;
+    fs.renameSync(`${sDir}/${errFile}`, `${sDir}/${newErrFile}`);
+    log(`Error File Renamed to ${sDir}/${newErrFile}`, true);
+  }
+  return console.log(`Process exit with code ${code}`);
 });
 
-//load the datasetKey_gbifArray file into local array
-dRead.on('line', function (row) {
+if (processErrors) {
+  log(`Processing Error File ${sDir}/${errFile}`, true);
+  wRead = readline.createInterface({
+    input: fs.createReadStream(`${sDir}/${errFile}`) //process errors
+  });
+} else {
+  wRead = readline.createInterface({
+    input: fs.createReadStream(`${sDir}/datasetKey_gbifArray.txt`) //process all
+  });
+}
+
+//load the datasetKey_gbifArray (or error) file into local array
+wRead.on('line', function (row) {
   idx++;
   arr = row.split(":");
   mod = arr.slice(); //using .slice() copies by value, not by reference
@@ -59,32 +87,63 @@ dRead.on('line', function (row) {
   dKey = mod[0];
   dKeyArr[dKey] = mod[1];
 
-  console.log(`${idx} datasetKey: ${dKey}`);
+  log(`${idx} datasetKey: ${dKey}`);
 });
 
 //when the datasetKey-to-gibfId file is done loading, create a new citations.txt
-dRead.on('close', function() {
+wRead.on('close', async function() {
   idx = 1;
-  Object.keys(dKeyArr).forEach(function(dKey) {
+  await Object.keys(dKeyArr).forEach(async function(dKey) {
     //request citation object from GBIF dataset API
-    Request.get(`http://api.gbif.org/v1/dataset/${dKey}`, (err, res, body) => {
+    await Request.get(`http://api.gbif.org/v1/dataset/${dKey}`, async (err, res, body) => {
         if (err) {
-            return console.dir(err);
+            log(`${idx} | GBIF http GET ERROR | ${err}`, true);
+            logErr(dKey);
+            idx++;
+            return err;
         }
-        var jBod = JSON.parse(body);
-        console.log(`${idx} | citation | ${jBod.citation.text}`);
-        //open a write stream (create the file)
-        wsCitations[dKey] = fs.createWriteStream(`${sDir}/${dKey}/citations.txt`);
-        wsCitations[dKey].write("When using this dataset please use the following citation and pay attention to the rights documented in the rights.txt:\n");
-        wsCitations[dKey].write(`${jBod.citation.text}\n`);
+        try {
+          var jBod = JSON.parse(body);
+          log(`${idx} | ${dKey} | citation | ${jBod.citation.text}`, true);
+          //open a write stream (create the file)
+          wsCitations[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/citations.txt`);
+          wsCitations[dKey].write("When using this dataset please use the following citation and pay attention to the rights documented in the rights.txt:\n");
+          wsCitations[dKey].write(`${jBod.citation.text}\n`);
 
-        console.log(`${idx} | rights | title | ${jBod.title}`);
-        console.log(`${idx} | rights | license | ${jBod.license}`);
-        console.log(`\n`);
-        wsRights[dKey] = fs.createWriteStream(`${sDir}/${dKey}/rights.txt`);
-        wsRights[dKey].write(`${jBod.title}\n`);
-        wsRights[dKey].write(`${jBod.license}\n`);
-        idx++;
+          log(`${idx} | ${dKey} | rights | title | ${jBod.title}`, true);
+          log(`${idx} | ${dKey} | rights | license | ${jBod.license}`, true);
+          log(`\n`);
+          wsRights[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/rights.txt`);
+          wsRights[dKey].write(`${jBod.title}\n`);
+          wsRights[dKey].write(`${jBod.license}\n`);
+          idx++;
+        } catch(err) {
+          log(`Error processing GBIF GET Request: ${err}`, true);
+        }
     });
   });
 });
+
+async function log(txt, override=false) {
+  try {
+    if (logToConsole || override) {console.log(txt);}
+    if (!wStream['log']) {
+      wStream['log'] = await fs.createWriteStream(`${sDir}/${logFile}`);
+    }
+    wStream['log'].write(txt + '\n');
+  } catch(error) {
+    throw error;
+  }
+}
+
+async function logErr(txt) {
+  try {
+    console.log(`datasetKey Added to Error File: ${txt}`);
+    if (!wStream['err']) {
+      wStream['err'] = await fs.createWriteStream(`${sDir}/${errFile}`);
+    }
+    wStream['err'].write(txt + '\n');
+  } catch(error) {
+    throw error;
+  }
+}
