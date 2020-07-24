@@ -88,11 +88,13 @@ dRead.on('close', function() {
   });
 });
 
-async function log(txt, override=false) {
+//async function log(txt, override=false) {
+function log(txt, override=false) {
   try {
     if (logToConsole || override) {console.log(txt);}
     if (!wStream['log']) {
-      wStream['log'] = await fs.createWriteStream(`${sDir}/verbatim_split.log`);
+      //wStream['log'] = await fs.createWriteStream(`${sDir}/verbatim_split.log`);
+      wStream['log'] = fs.createWriteStream(`${sDir}/verbatim_split.log`);
     }
     wStream['log'].write(txt + '\n');
   } catch(err) {

@@ -13,6 +13,10 @@
   generated from processing occurrence.txt, which contains the only link
   between gbifId and datasetKey.
 
+  At the start, detect a prior file of errors, 'citations_rights_get.err'. If it
+  exists, open and process just the datasetKeys in errFile. If it does not exist,
+  open and use the file of all datasetKeys, 'datasetKey_gbifArray.txt'.
+
   For each datasetKey, query the GBIF API http://api.gbif.org/v1/dataset/datasetKey
   to retrieve citations and rights information for the dataset.
 
@@ -30,7 +34,6 @@ var fs = require('fs');
 var paths = require('./00_config').paths;
 var Request = require("request");
 const moment = require('moment');
-
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
@@ -106,14 +109,14 @@ wRead.on('close', async function() {
           var jBod = JSON.parse(body);
           log(`${idx} | ${dKey} | citation | ${jBod.citation.text}`, true);
           //open a write stream (create the file)
-          wsCitations[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/citations.txt`);
+          wsCitations[dKey] = fs.createWriteStream(`${sDir}/${dKey}/citations.txt`);
           wsCitations[dKey].write("When using this dataset please use the following citation and pay attention to the rights documented in the rights.txt:\n");
           wsCitations[dKey].write(`${jBod.citation.text}\n`);
 
           log(`${idx} | ${dKey} | rights | title | ${jBod.title}`, true);
           log(`${idx} | ${dKey} | rights | license | ${jBod.license}`, true);
           log(`\n`);
-          wsRights[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/rights.txt`);
+          wsRights[dKey] = fs.createWriteStream(`${sDir}/${dKey}/rights.txt`);
           wsRights[dKey].write(`${jBod.title}\n`);
           wsRights[dKey].write(`${jBod.license}\n`);
           idx++;
@@ -124,11 +127,11 @@ wRead.on('close', async function() {
   });
 });
 
-async function log(txt, override=false) {
+function log(txt, override=false) {
   try {
     if (logToConsole || override) {console.log(txt);}
     if (!wStream['log']) {
-      wStream['log'] = await fs.createWriteStream(`${sDir}/${logFile}`);
+      wStream['log'] = fs.createWriteStream(`${sDir}/${logFile}`);
     }
     wStream['log'].write(txt + '\n');
   } catch(error) {
@@ -136,11 +139,11 @@ async function log(txt, override=false) {
   }
 }
 
-async function logErr(txt) {
+function logErr(txt) {
   try {
     console.log(`datasetKey Added to Error File: ${txt}`);
     if (!wStream['err']) {
-      wStream['err'] = await fs.createWriteStream(`${sDir}/${errFile}`);
+      wStream['err'] = fs.createWriteStream(`${sDir}/${errFile}`);
     }
     wStream['err'].write(txt + '\n');
   } catch(error) {

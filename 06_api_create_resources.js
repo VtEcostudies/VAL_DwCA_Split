@@ -91,7 +91,7 @@ dRead.on('close', async function() {
           log('ALA Data Resource NOT found.');
           await postAlaDataResource(idx, dArr[idx], gbif);
         } else if (alaDR.length == 1) {
-          log(`ALA Data Resource | UID: ${alaDR[0].uid} | resourceType: ${test.resourceType} | contentTypes: ${test.contentTypes}`);
+          log(`ALA Data Resource found | UID: ${alaDR[0].uid} | resourceType: ${alaDR[0].resourceType} | contentTypes: ${alaDR[0].contentTypes}`);
           await putAlaDataResource(idx, dArr[idx], alaDR[0], gbif);
         } else {
           log(`ERROR: ALA Data Resource GUID ${dArr[idx]} has ${alaDR.length} entries.`);
@@ -195,6 +195,7 @@ function gbifToAlaDataset(gbif, alaDR={}) {
                 (gbif.type=='SAMPLING_EVENT'?'records':'records'));
 
   // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
+  var url = `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&geometry=POLYGON((-73.38789 45.02072,-73.41743 44.62239,-73.32404 44.47363,-73.47236 44.0606,-73.39689 43.77059,-73.47379 43.57988,-73.39689 43.54406,-73.33646 43.60972,-73.29252 43.56197,-73.29252 42.73641,-72.52897 42.73238,-72.44108 42.99409,-72.28178 43.65346,-72.0593 43.8992,-72.01536 44.21698,-71.51548 44.48409,-71.47627 45.01296,-73.38789 45.02072))&has_coordinate=true&has_geospatial_issue=false`;
   var ala = {
       "name": `${gbif.title} (Vermont)`,
       "acronym": "",
@@ -205,7 +206,7 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "email": "",
       "pubShortDescription": "",
       "pubDescription": `${gbif.description} (Vermont)`,
-      "techDescription": `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&state_province=vermont&advanced=1`,
+      "techDescription": `<a href=${url}>${url}</a>`,
       "focus": "",
       "state": "",
       "websiteUrl": gbif.homepage,

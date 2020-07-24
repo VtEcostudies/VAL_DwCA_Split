@@ -12,6 +12,7 @@
     occurrence.txt in the field named datasetKey.
 
   Specifics:
+  - Create the splitDir directory (synchronously!)
   - Parse occurrence.txt by '\n' terminated line looking for datasetKey
   - Create a directory from each datasetKey with dataset sub-dir eg. datasetKey/dataset
   - Copy ./dataset/datasetKey.xml to ./datsetKey/dataset/datasetKey.xml
@@ -31,9 +32,6 @@
 var readline = require('readline');
 var fs = require('fs');
 var paths = require('./00_config').paths;
-
-log(`config paths: ${JSON.stringify(paths)}`);
-
 var dDir = paths.dwcaDir; //path to directory holding extracted GBIF DWcA files
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
@@ -49,6 +47,10 @@ var gbifId = 0;
 var dKey = "";
 var logToConsole = false; //console logging slows processing a lot
 
+fs.mkdirSync(`${sDir}`); //make the splitDir
+
+log(`config paths: ${JSON.stringify(paths)}`);
+
 wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
 
 var fRead = readline.createInterface({
@@ -56,7 +58,8 @@ var fRead = readline.createInterface({
 });
 
 //read occurrence.txt
-fRead.on('line', async function (row) {
+//fRead.on('line', async function (row) {
+fRead.on('line', function (row) {
     if (idx == 0) {
       top = row; //save the 1st row for each dKey/occurrenct.txt
     } else {
@@ -71,7 +74,8 @@ fRead.on('line', async function (row) {
       gbifArr[gbifId] = dKey;
       //look for already-open gbifArr write stream. if not, wait for it to open.
       if (!wStream['gbifArr']) {
-        wStream['gbifArr'] = await fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
+        //wStream['gbifArr'] = await fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
+        wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
       }
       //immediately write to file (assumed unique)
       wStream['gbifArr'].write(`${gbifId}:${dKey}\n`);
@@ -112,7 +116,9 @@ fRead.on('line', async function (row) {
 
         //look for already-open dKey write stream. create if not.
         if (!wStream[dKey]) {
-          wStream[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
+          //console.log(`Create Write Stream for ${sDir}/${dKey}/occurrence.txt`);
+          //wStream[dKey] = await fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
+          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
           wStream[dKey].write(`${top}\n`);
         }
         //write occurrence row to datasetKey/occurrence.txt
@@ -124,24 +130,32 @@ fRead.on('line', async function (row) {
 });
 
 //when occurrence.txt is done, put dKeyArr to file
-fRead.on('close', async function() {
-  //look for already-open dKeyArr write stream
-  if (!wStream['dKeyGbifArr']) {
-    wStream['dKeyGbifArr'] = await fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
-  }
+//fRead.on('close', async function() {
+fRead.on('close', function() {
+  try {
+    //look for already-open dKeyArr write stream
+    if (!wStream['dKeyGbifArr']) {
+      //wStream['dKeyGbifArr'] = await fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
+      wStream['dKeyGbifArr'] = fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
+    }
 
-  //put dKeyArr to file
-  Object.keys(dKeyArr).forEach(function(key) {
-    log(`${key}:${dKeyArr[key]}\n`);
-    wStream['dKeyGbifArr'].write(`${key}:${dKeyArr[key]}\n`);
-  });
+    //put dKeyArr to file
+    Object.keys(dKeyArr).forEach(function(key) {
+      log(`${key}:${dKeyArr[key]}\n`);
+      wStream['dKeyGbifArr'].write(`${key}:${dKeyArr[key]}\n`);
+    });
+  } catch(err) {
+    throw(err);
+  }
 });
 
-async function log(txt, override=false) {
+//async function log(txt, override=false) {
+function log(txt, override=false) {
   try {
     if (logToConsole || override) {console.log(txt);}
     if (!wStream['log']) {
-      wStream['log'] = await fs.createWriteStream(`${sDir}/occurrence_split.log`);
+      //wStream['log'] = await fs.createWriteStream(`${sDir}/occurrence_split.log`);
+      wStream['log'] = fs.createWriteStream(`${sDir}/occurrence_split.log`);
     }
     wStream['log'].write(txt + '\n');
   } catch(err) {

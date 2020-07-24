@@ -64,11 +64,14 @@ dRead.on('close', function() {
     input: fs.createReadStream(`${dDir}/multimedia.txt`)
   });
 
+  wStream['mm_dKeys'] = fs.createWriteStream(`${sDir}/multimedia_datasetKeys.txt`);
+
   vRead.on('line', function (row) {
       if (idx == 0) {
         top = row; //save the 1st row for each dKey/multimedia.txt
       } else {
         //<field index="0" term="http://rs.gbif.org/terms/1.0/gbifID"/>
+        //<field index="12" term="http://purl.org/dc/terms/publisher"/>
         arr = row.split("\t");
         mod = arr.slice(); //using .slice() copies by value, not by reference
 
@@ -78,15 +81,19 @@ dRead.on('close', function() {
         //console.log(`${idx} | multimedia.txt | ${dKey} | ${gbifId}`);
 
         //look for already-open dKey write stream
+        //if not, create stream/file, write header
+        //also add dKey to multimedia_datasetKeys to limit processing to those files later (if desired)
         if (!wStream[dKey]) {
           wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/multimedia.txt`);
           wStream[dKey].write(`${top}\n`);
+          console.log(`${idx} | create multimedia.txt | publisher: ${mod[12]} | ${dKey} | ${gbifId}`);
+          wStream['mm_dKeys'].write(`${dKey}\n`);
         }
         wStream[dKey].write(`${row}\n`);
       }
       idx++;
   });
-  
+
   vRead.on('close', function() {
     console.log(`Done reading aggregate multimedia.txt`);
   });
