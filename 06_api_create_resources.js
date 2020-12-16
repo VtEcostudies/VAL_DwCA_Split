@@ -186,6 +186,24 @@ function putAlaDataResource(idx, dKey, alaDR, gbif) {
   });
 }
 
+/*
+NOTE: The ALA collectory insertable fields are found here:
+https://github.com/AtlasOfLivingAustralia/collectory-plugin/blob/2ed9737c04db9a07fe9052d40ece43c4e5a2b207/grails-app/services/au/org/ala/collectory/CrudService.groovy#L19
+baseStringProperties =
+    ['guid','name','acronym','phone','email','state','pubShortDescription',
+    'pubDescription','techDescription','notes', 'isALAPartner','focus','attributions',
+    'websiteUrl','networkMembership','altitude', 'street','postBox','postcode','city',
+    'state','country','file','caption','attribution','copyright', 'gbifRegistryKey']
+    https://github.com/AtlasOfLivingAustralia/collectory-plugin/blob/2ed9737c04db9a07fe9052d40ece43c4e5a2b207/grails-app/services/au/org/ala/collectory/CrudService.groovy#L33
+dataResourceStringProperties =
+    ['rights','citation','dataGeneralizations','informationWithheld',
+    'permissionsDocument','licenseType','licenseVersion','status','mobilisationNotes','provenance',
+    'harvestingNotes','connectionParameters','resourceType','permissionsDocumentType','riskAssessment',
+    'filed','publicArchiveAvailable','contentTypes','defaultDarwinCoreValues', 'imageMetadata',
+    'geographicDescription','northBoundingCoordinate','southBoundingCoordinate','eastBoundingCoordinate',
+    'westBoundingCoordinate','beginDate','endDate','qualityControlDescription','methodStepDescription',
+    'gbifDoi']
+*/
 function gbifToAlaDataset(gbif, alaDR={}) {
   var resourceType = 'records';
 
@@ -198,22 +216,25 @@ function gbifToAlaDataset(gbif, alaDR={}) {
   var url = `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&geometry=POLYGON((-73.38789 45.02072,-73.41743 44.62239,-73.32404 44.47363,-73.47236 44.0606,-73.39689 43.77059,-73.47379 43.57988,-73.39689 43.54406,-73.33646 43.60972,-73.29252 43.56197,-73.29252 42.73641,-72.52897 42.73238,-72.44108 42.99409,-72.28178 43.65346,-72.0593 43.8992,-72.01536 44.21698,-71.51548 44.48409,-71.47627 45.01296,-73.38789 45.02072))&has_coordinate=true&has_geospatial_issue=false`;
   var ala = {
       "name": `${gbif.title} (Vermont)`,
-      "acronym": "",
-      //"uid": null, //This field cannot be set externally.
+      //"acronym": "",
       "guid": gbif.key,
-      "address": null, //can't be empty string
-      "phone": "",
-      "email": "",
+      "street": gbif.contacts[0].address[0],
+      "postBox": "",
+      "postcode": gbif.contacts[0].postalCode,
+      "city": gbif.contacts[0].city,
+      "state": gbif.contacts[0].province,
+      "country": gbif.contacts[0].country,
+      "phone": gbif.contacts[0].phone[0],
+      "email": gbif.contacts[0].email[0],
       "pubShortDescription": "",
       "pubDescription": `${gbif.description} (Vermont)`,
       "techDescription": `<a href=${url}>${url}</a>`,
       "focus": "",
-      "state": "",
-      "websiteUrl": gbif.homepage,
-      //"alaPublicUrl": "http://beta.vtatlasoflife.org/collectory/public/show/dr8",
+      "websiteUrl": gbif.enpoints[0]?gbif.enpoints[0].url?"", //gbif.homepage,
       "networkMembership": null, //can't be empty string
       "hubMembership": [],
       "taxonomyCoverageHints": [],
+      "attribution": "",
       "attributions": [], //gbif.contacts,
       "rights": gbif.license,
       "licenseType": "",
@@ -238,7 +259,7 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "status": "identified",
       "provenance": "", //can't be null. can be empty string.
       "harvestFrequency": 0,
-      "dataCurrency": null, //can't be empty string
+      //"dataCurrency": null, //not a valid field
       "harvestingNotes": "",
       "publicArchiveAvailable": true,
       //"publicArchiveUrl": `${urls.collectory}/archives/gbif/${alaDR.uid}/${alaDR.uid}.zip`,
@@ -248,7 +269,9 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "isShareableWithGBIF": true,
       "verified": false,
       "gbifRegistryKey": gbif.key,
-      "doi": gbif.doi //this does not work - cannot set via the API
+      "beginDate": gbif.temporalCoverages[0]?gbif.temporalCoverages[0].start?null,
+      "endDate": gbif.temporalCoverages[0]?gbif.temporalCoverages[0].end?null,
+      "gbifDoi": gbif.doi //output value 'doi' is not proper. this does not work - cannot set via the API
   };
 
   switch(gbif.type) {
