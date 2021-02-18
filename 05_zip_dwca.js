@@ -17,7 +17,7 @@ var cnt = 1; //separate counter for zipped array elements
 var output = [];
 var archive = [];
 var readFile = ['datasetKey_gbifArray.txt', 'multimedia_datasetKeys.txt'];
-var multi_only = 0;
+var multi_only = 0; //an array element into readFile, above: 0 or 1
 
 function promptErr(err) {
     console.log(err);

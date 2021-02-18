@@ -65,12 +65,12 @@ var dRead = readline.createInterface({
 
 //load the datasetKey_gbifArray file into local array
 dRead.on('line', function (row) {
-  idx++;
+  idx++; //array starts at 1
   var arr = row.split(":");
   var mod = arr.slice(); //using .slice() copies by value, not by reference
 
   var dpKey = mod[0];
-  dArr[idx] = dpKey;
+  dArr[idx] = dpKey; //array starts at 1
 
   //console.log(`read line: ${idx} datasetKey: ${dpKey}`);
 });
@@ -95,8 +95,9 @@ dRead.on('close', async function() {
     GetGbifPublisher
 
   */
-  //for (var idx=1; idx < dArr.length; idx++) {
-  for (var idx=100; idx < dArr.length; idx++) {
+  for (var idx=1; idx < dArr.length; idx++) {
+  //for (var idx=1; idx < 2; idx++) { //array result is 1-based
+    console.log(dArr[idx]);
     gbifDataset = await GetGbifDataset(idx, dArr[idx]);
     if (gbifDataset) {
       log('GBIF Dataset Title:', gbifDataset.title);

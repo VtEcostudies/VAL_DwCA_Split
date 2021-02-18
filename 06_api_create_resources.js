@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: sync_create_resources.js
+  File: 06_api_create_resources.js
 
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
@@ -81,7 +81,8 @@ dRead.on('close', async function() {
     stepwise API updates, and couldn't. A random search on Stack Overflow found
     a comment about synch vs async loop structure. Voila.
   */
-  for (var idx=1; idx < (dryRun?10:dArr.length); idx++) { //for testing...
+  for (var idx=350; idx < (dryRun?2:dArr.length); idx++) { //for testing...
+  //for (var idx=1; idx < 2; idx++) { //for testing...
     gbif = await getGbifDataset(idx, dArr[idx]);
     if (gbif) {
       log(`GBIF Dataset Title: ${gbif.title}`);
@@ -100,7 +101,9 @@ dRead.on('close', async function() {
         var test = gbifToAlaDataset(gbif, alaDR);
         log(`resourceType: ${test.resourceType}`);
         log(`contentTypes: ${test.contentTypes}`);
+        //console.dir(test);
       }
+      log(`------------------------------------------------------------------------`)
     }
   }
 });
@@ -133,7 +136,7 @@ function getAlaDataResource(idx, dKey) {
 
   return new Promise((resolve, reject) => {
     Request.get(parms, (err, res, body) => {
-      log(`GET ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`GET ALA Data Resource | ${idx} | dataset | ${dKey} | ${parms.url} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
         log(`ERROR | in getAlaDataResource | err:${err?err:undefined} | result:${res?res.statusCode:undefined}`);
         reject([]); //expecting an array returned...
@@ -155,8 +158,10 @@ function postAlaDataResource(idx, dKey, gbif) {
 
   return new Promise((resolve, reject) => {
     Request.post(parms, (err, res, body) => {
-      log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`POST ALA Data Resource | ${idx} | dataset | ${dKey} |  ${parms.url} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
+        //console.dir(res);
+        //console.dir(parms.body);
         reject(err);
       } else {
         resolve(body);
@@ -176,8 +181,9 @@ function putAlaDataResource(idx, dKey, alaDR, gbif) {
 
   return new Promise((resolve, reject) => {
     Request.put(parms, (err, res, body) => {
-      log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} | ${res.statusCode}`);
+      log(`PUT ALA Data Resource | ${idx} | dataset | ${dKey} |  ${parms.url} | ${res.statusCode}`);
       if (err || res.statusCode > 399) {
+        console.dir(parms.body);
         reject(err);
       } else {
         resolve(body);
@@ -203,6 +209,9 @@ dataResourceStringProperties =
     'geographicDescription','northBoundingCoordinate','southBoundingCoordinate','eastBoundingCoordinate',
     'westBoundingCoordinate','beginDate','endDate','qualityControlDescription','methodStepDescription',
     'gbifDoi']
+IMPORTANT NOTE: To debug this, on ala core server:
+  - cd /var/log/tomcat7
+  - tail -f ala-collecotry.log
 */
 function gbifToAlaDataset(gbif, alaDR={}) {
   var resourceType = 'records';
@@ -213,28 +222,28 @@ function gbifToAlaDataset(gbif, alaDR={}) {
                 (gbif.type=='SAMPLING_EVENT'?'records':'records'));
 
   // Don't change all nulls to empty strings (""). Some fields require null or non-empty string.
-  var url = `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&geometry=POLYGON((-73.38789 45.02072,-73.41743 44.62239,-73.32404 44.47363,-73.47236 44.0606,-73.39689 43.77059,-73.47379 43.57988,-73.39689 43.54406,-73.33646 43.60972,-73.29252 43.56197,-73.29252 42.73641,-72.52897 42.73238,-72.44108 42.99409,-72.28178 43.65346,-72.0593 43.8992,-72.01536 44.21698,-71.51548 44.48409,-71.47627 45.01296,-73.38789 45.02072))&has_coordinate=true&has_geospatial_issue=false`;
+  var url = `https://www.gbif.org/occurrence/search?dataset_key=${gbif.key}&gadm_gid=USA.46_1`;
   var ala = {
       "name": `${gbif.title} (Vermont)`,
       //"acronym": "",
       "guid": gbif.key,
-      "street": gbif.contacts[0].address[0],
-      "postBox": "",
-      "postcode": gbif.contacts[0].postalCode,
-      "city": gbif.contacts[0].city,
-      "state": gbif.contacts[0].province,
-      "country": gbif.contacts[0].country,
-      "phone": gbif.contacts[0].phone[0],
-      "email": gbif.contacts[0].email[0],
+      //"address": gbif.contacts[0] ? gbif.contacts[0].address[0] : null], //changed from 'street' on 2021-02-16 per debugging of server log /var/log/tomcat7/ala-collectory.log
+      "postbox": "",
+      "postCode": gbif.contacts[0] ? gbif.contacts[0].postalCode : null,
+      "City": gbif.contacts[0] ? gbif.contacts[0].city : null,
+      "state": gbif.contacts[0] ? gbif.contacts[0].province : null,
+      "Country": gbif.contacts[0] ? gbif.contacts[0].country : null,
+      "phone": gbif.contacts[0] ? (gbif.contacts[0].phone[0] ? gbif.contacts[0].phone[0].substring(0,24) : null ) : null,
+      "email": gbif.contacts[0] ? gbif.contacts[0].email[0] : null,
       "pubShortDescription": "",
       "pubDescription": `${gbif.description} (Vermont)`,
-      "techDescription": `<a href=${url}>${url}</a>`,
+      "techDescription": url, //`<a href=${url}>${url}</a>`,
       "focus": "",
-      "websiteUrl": gbif.enpoints[0]?gbif.enpoints[0].url?"", //gbif.homepage,
+      "websiteUrl": gbif.endpoints[0] ? gbif.endpoints[0].url : "", //gbif.homepage
       "networkMembership": null, //can't be empty string
       "hubMembership": [],
       "taxonomyCoverageHints": [],
-      "attribution": "",
+      //"attribution": "", //2021-02-16 17:51:25,568 ERROR [CrudService] Insert failed: No such property: attribution for class: au.org.ala.collectory.DataResource Possible solutions: attributions
       "attributions": [], //gbif.contacts,
       "rights": gbif.license,
       "licenseType": "",
@@ -269,9 +278,9 @@ function gbifToAlaDataset(gbif, alaDR={}) {
       "isShareableWithGBIF": true,
       "verified": false,
       "gbifRegistryKey": gbif.key,
-      "beginDate": gbif.temporalCoverages[0]?gbif.temporalCoverages[0].start?null,
-      "endDate": gbif.temporalCoverages[0]?gbif.temporalCoverages[0].end?null,
-      "gbifDoi": gbif.doi //output value 'doi' is not proper. this does not work - cannot set via the API
+      "beginDate": gbif.temporalCoverages[0] ? gbif.temporalCoverages[0].start : null,
+      "endDate": gbif.temporalCoverages[0] ? gbif.temporalCoverages[0].end : null,
+      "gbifDoi": gbif.doi
   };
 
   switch(gbif.type) {
