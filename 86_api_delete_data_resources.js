@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: api_delete_resources.js
+  File: 99_api_delete_resources.js
 
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
