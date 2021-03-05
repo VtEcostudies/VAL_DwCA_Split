@@ -31,7 +31,6 @@ UIDs = [
 'dr289', 'dr213', 'dr237', 'dr53', 'dr167', 'dr107', 'dr280', 'dr126',
 'dr220', 'dr138', 'dr196', 'dr137', 'dr329', 'dr256','dr64', 'dr316',
 'dr52', 'dr125', 'dr54', 'dr326', 'dr340', 'dr97', 'dr315'];
-//UIDs = ['dr289'];
 
 UIDs.forEach(uid => {
   var parms = {url: `${urls.collectory}/ws/dataResource/${uid}`};//DELETE operates on uid, not guid
