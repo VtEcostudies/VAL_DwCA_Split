@@ -54,19 +54,19 @@ var inUid = null; //VAL Institution UID
 var coUid = null; //VAL Collection UID
 
 /*
-  Now we wait for the log writeStream to emit an 'open' event before we begin.
+  Now we wait for the log init's createWriteStream to emit an 'open' or 'error' event before we begin.
 */
-init(logName, logDir)
+init(logName, logDir) //init's error does not throw error, allowing this to proceed on error
   .then(() => {
-    log(`config paths: ${JSON.stringify(paths)}`);
-    log(`config urls: ${JSON.stringify(urls)}`);
+    log('config paths', paths);
+    log('config urls', urls);
 
     //Get command-line args
     for (var i=0; i<process.argv.length; i++) {
       var all = process.argv[i].split('='); //the ith command-line argument
       var act = all[0]?all[0].toLowerCase():null; //action, left of action=argument
       var arg = all[1]?all[1].toLowerCase():null; //argument, right of action=argument
-      log(`command-line argument ${i} | ${all}`);
+      log(`command-line argument`, i, all);
     	switch(act) {
         case "dskey":
           dskey = arg;
@@ -107,7 +107,7 @@ async function mainLoop() {
     var dKey = mod[0];
     dArr[idx] = dKey;
 
-    log(`read line: ${idx} datasetKey: ${dKey}`);
+    log(`read line`, idx, 'datasetKey', dKey);
   });
 
   dRead.on('close', async function() {
@@ -120,7 +120,7 @@ async function mainLoop() {
     for (var idx=1; idx < (dryRun?2:dArr.length); idx++) { //dryRun for testing...
       gbifDS = await gbifApi.getGbifDataset(idx, dArr[idx]);
       if (gbifDS) {
-        log(`GBIF Dataset Title: ${gbifDS.title}`);
+        log(`GBIF Dataset Title`, gbifDS.title);
         valDR = await valApi.findValDataResource(idx, dArr[idx]); //find VAL DR by GBIF dataSetKey in guid field
         valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
         //get GBIF Publisher and Installation info to create or update dataProvider
@@ -133,10 +133,10 @@ async function mainLoop() {
           valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
         }
         if (valDR.uid) {
-          log(`VAL Data Resource found | uid: ${valDR.uid} | name: ${valDR.name} | uri: ${valDR.uri}`);
+          log(`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);
           await valApi.putValDataResource(idx, dArr[idx], gbifDS, valDR, valDP.uid);
         } else {
-          log('VAL Data Resource NOT found.');
+          log('VAL Data Resource NOT found');
           await valApi.postValDataResource(idx, dArr[idx], gbifDS, valDP.uid);
         }
         log(`------------------------------------------------------------------------`)
