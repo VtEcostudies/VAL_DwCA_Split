@@ -31,8 +31,8 @@
 */
 const readline = require('readline');
 const fs = require('fs');
-const paths = require('./VAL_Utilities/00_config').paths;
-const urls =  require('./VAL_Utilities/00_config').urls;
+const paths = require('./00_config').paths;
+const urls =  require('./00_config').urls;
 const Request = require('request');
 const moment = require('moment');
 const gbifApi = require('./VAL_Utilities/95_gbif_api_calls');
