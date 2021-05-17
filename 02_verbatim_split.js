@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: verbatim_split.js
+  File: 02_verbatim_split.js
 
   Specifics:
   Split verbatim.txt into datasetKey directories using gbifId-to-datesetKey

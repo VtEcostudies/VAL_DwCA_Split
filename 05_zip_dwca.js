@@ -1,4 +1,16 @@
 /*
+Author: Jason Loomis
+
+Project: gbif_dwca_split
+Parse aggregate GBIF download DWcA into individual datasets/providers.
+Goal being then to ingest each dataset into VAL as a separate data resource.
+
+File: 05_zip_dwca.js
+
+- You will be prompted to zip Multimedia Datasets Only...oops, it doesn't work. (Commented the code.)
+- Some files are enormous. On zipping large files, it will appear as if the process has hung. You may need to wait 30
+  minutes, or more.
+
 Upload gzip files to server with scp:
 
 scp -i "C:\Users\jloomis\.ssh\vce_live_aws_key_pair.pem" ./*.zip ubuntu@vtatlasoflife.org:/srv/vtatlasoflife.org/www/gbif-split
@@ -23,14 +35,27 @@ function promptErr(err) {
     console.log(err);
     return 1;
 }
-prompt.start();
-prompt.get(['multimedia'], function (err, result) {
 
-  if (err) { return promptErr(err); }
-  console.log('Command-line input received:');
-  console.log(': multimedia', result.multimedia);
-  //multi_only = result.multimedia != null ? 1 : 0;
-  console.log('readFile is ', readFile[multi_only]);
+if (1) {
+  main();
+} else {
+  prompt.start();
+  prompt.get(['multimedia'], function (err, result) {
+
+    if (err) { return promptErr(err); }
+    console.log('Command-line input received:');
+    console.log(': multimedia', result.multimedia);
+    //multi_only = result.multimedia != null ? 1 : 0;
+    console.log('readFile is ', readFile[multi_only]);
+    main(multi_only);
+  });
+}  
+
+/*
+  Read datasetKey_gbifArray into local array and process files into zips for
+  uploading.
+*/
+function main(multi_only=0) {
 
   //read lines from datasetKey_... to get an array of datasetKeys
   var dRead = readline.createInterface({
@@ -126,4 +151,3 @@ prompt.get(['multimedia'], function (err, result) {
     archive[cnt].finalize();
 
   }
-});

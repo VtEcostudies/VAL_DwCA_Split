@@ -1,4 +1,3 @@
-
 /*
 VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 
@@ -34,6 +33,7 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
     multimedia.txt. VAL DE (ALA) handles this just fine.
 8) When (7) completes, run the command:
   - node 05_zip_dwca.js
+  - There was an attempt at uploading mutlimedia_only via prompt which doesn't work and is disabled.
   - You will be prompted to zip Multimedia Datasets Only...oops, it doesn't work. (Commented the code.)
   - Some files are enormous. On zipping large files, it will appear as if the process has hung. You may need to wait 30
     minutes, or more.
@@ -46,32 +46,39 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
     the latest names to do that.
   - See the process for updating the VAL Vermont Registry of Names here: https://github.com/VtEcostudies/val_species
 11) Prepare and upload zipped DwCA files to gbif-split directory on VAL Core server:
+  - cd /srv/
   - Rename existing gbif-split to gbif-split_{original-date}
-  - Create a new gbif-split directory.
+  - Create a new gbif-split directory on the ALA Core Server (/srv/vtatlasoflife.org/www/gbif-split)
+  - local machine: cd C:\Users\jloomis\Documents\VCE\VAL_Data_Pipelines\VAL_DWcA_Split\split_2021-05-05
   - scp -i "C:/Users/jloomis/.ssh/vce_live_aws_key_pair.pem" ./*.zip ubuntu@52.10.66.189:/srv/vtatlasoflife.org/www/gbif-split
-  - chmod -r 777 /srv/vtatlasoflife.org/www/gbif-split
-  - chown -R tomcat7.tomcat7 /srv/vtatlasoflife.org/www/gbif-split.
+  - chmod 777 /srv/vtatlasoflife.org/www/gbif-split
+  - chown -R tomcat7.tomcat7 /srv/vtatlasoflife.org/www/gbif-split
   - IMPORTANT: MOVE 2 LARGEST FILES TO SUB-DIR BEFORE PROCESSING
-    - 4fa7b334-ce0d-4e88-aaae-2e0c138d049e.zip (eBird)
-    - 50c9509d-22c7-4a22-a47d-8c48425ef4a7.zip (iNat)
-  - Process all others first, then move those two files back and process them individually (see below)
-12) When (8) completes and (9) thru (11) are done, run the command below. (This will create/update all Data Resources in VAL in preparation for data ingestion.)
-  - node 06_api_create_resources.js
-13) Proceed with ingestion of all data on the VAL DE server. This is an ALA process with its own detailed steps, outlined here:
+    - $ mkdir skip-huge && mv 4fa7b334-ce0d-4e88-aaae-2e0c138d049e.zip ./skip-huge (eBird)
+    - $ mv 50c9509d-22c7-4a22-a47d-8c48425ef4a7.zip ./skip-huge (iNat)
+  - Load/reload all others first, then move those two files back and load/reload them individually (see below)
+12) When (8) completes and (9) thru (11) are done, run the command below.
+  - This will create/update all Data Resources in VAL in preparation for data ingestion.
+  - NOTE: This now also creates/updates all dataProviders as well
+  - node 06_api_create_update_data_resources.js
+13) When (12) completes, run the command below.
+  - This will create/update all Data Providers in VAL in preparation for data ingestion.
+  - NOTE: This is no longer necessary
+  - node 07_api_create_data_providers.js
+14) Proceed with ingestion of all data on the VAL DE server. This is an ALA process with its own
+    detailed steps, outlined here:
   - cd /data/biocache
   - ls -alh
-  - mv load-all.out load-all-{date of loading}.out
-  - ./load-all.sh
-  - tail -f load-all.out (this command uses 4 threads, so optimized)
-  - When load-all completes:
-  - ./load-dr19.sh
-  - ./load-dr1.sh
-14) You may find that some historically-involved Data Resources no longer have data in Vermont. This should only happen
+  - rm *.out
+  - ./load-all.sh && tail -f load_all.out
+  - ./load-dr19.sh && tail -f load_dr19.out
+  - ./load-dr1.sh && tail -f load_dr1.out
+  - ./process-all.sh && tail -f process_all.out
+  - ./index-all.sh && tail -f index_all.out
+15) You may find that some historically-involved Data Resources no longer have data in Vermont. This should only happen
     with the correction of the GIS bounding-box used in the GBIF download query. It did happen on 2021-02-15 with the change
     to our GADM query. We found 23 datasets that are no longer valid:
-    -
-
-
+  - See 08_api_delete_resources_by_UID.js to handle those.
 */
 
 exports.paths = {

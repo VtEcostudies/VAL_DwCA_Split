@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: multimedia_init.js
+  File: 04_multimedia_init.js
 
   Specifics:
   Create blank multimedia.txt files for each datasetKey to prevent errors on
@@ -38,7 +38,7 @@ dRead.on('line', function (row) {
   var dKey = mod[0];
 
   console.log(`${idx} Init multimedia.txt for datasetKey: ${dKey}`);
-  
+
   if (!wStream[dKey]) {
     wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/multimedia.txt`);
   }

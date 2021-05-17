@@ -6,7 +6,7 @@
   Goal being then to ingest each dataset into VAL as a separate data resource,
   and to ingest each provider of those datasets as well.
 
-  File: api_create_data_providers.js
+  File: 07_api_create_data_providers.js
 
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API

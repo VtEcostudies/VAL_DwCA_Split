@@ -69,7 +69,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
       log(`command-line argument`, i, all);
     	switch(act) {
         case "dskey":
-          dskey = arg;
+          dsKey = arg;
           break;
     		case "druid":
           drUid = arg;
@@ -87,7 +87,10 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
     }
 
     if (drUid) {putValDRbyValUid(1, drUid, dpUid, inUid, coUid);}
-    else if (dsKey) {putValDRbyGbifDatasetKey(1, dsKey, dpUid, inUid, coUid);}
+    else if (dsKey) {
+      //putValDRbGbifDatasetKey(1, dsKey, dpUid, inUid, coUid);
+      handleGbifDatasetKey(1, dsKey);
+    }
     else {mainLoop();}
 });
 
@@ -118,31 +121,41 @@ async function mainLoop() {
       Note: A simple for loop is synchronous, which is necessary for proper API updates.
     */
     for (var idx=1; idx < (dryRun?2:dArr.length); idx++) { //dryRun for testing...
-      gbifDS = await gbifApi.getGbifDataset(idx, dArr[idx]);
-      if (gbifDS) {
-        log(`GBIF Dataset Title`, gbifDS.title);
-        valDR = await valApi.findValDataResource(idx, dArr[idx]); //find VAL DR by GBIF dataSetKey in guid field
-        valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
-        //get GBIF Publisher and Installation info to create or update dataProvider
-        gbifPO = await gbifApi.getGbifPublisher(idx, gbifDS.publishingOrganizationKey);
-        gbifIL = await gbifApi.getGbifInstallation(idx, gbifDS.publishingOrganizationKey);
-        if (valDP.uid) { //always update dataProvider
-          await valApi.putValDataProvider(idx, gbifPO, gbifIL, valDP);
-        } else { //no VAL DP found for dataSet. Create one.
-          dpUid = await valApi.postValDataProvider(idx, gbifPO, gbifIL); //NOTE: This does not return a dpUid. Yet.
-          valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
-        }
-        if (valDR.uid) {
-          log(`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);
-          await valApi.putValDataResource(idx, dArr[idx], gbifDS, valDR, valDP.uid);
-        } else {
-          log('VAL Data Resource NOT found');
-          await valApi.postValDataResource(idx, dArr[idx], gbifDS, valDP.uid);
-        }
-        log(`------------------------------------------------------------------------`)
-      }
+      await handleGbifDatasetKey(idx, dArr[idx]);
+      //handleGbifDatasetKey(idx, dArr[idx]); //waaayy faster, and seems to work
     }
   });
+}
+
+async function handleGbifDatasetKey(idx, dsKey) {
+  var gbifDS = null;
+  var valDR = {};
+  var valDP = {};
+  var gbifPO = {}; //GBIF Publishing Organization, retrieved by
+  var gbifIL = {}; //GBIf IPT Installation
+  gbifDS = await gbifApi.getGbifDataset(idx, dsKey);
+  if (gbifDS) {
+    log(`GBIF Dataset Title`, gbifDS.title);
+    valDR = await valApi.findValDataResource(idx, dsKey); //find VAL DR by GBIF dataSetKey in guid field
+    valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
+    //get GBIF Publisher and Installation info to create or update dataProvider
+    gbifPO = await gbifApi.getGbifPublisher(idx, gbifDS.publishingOrganizationKey);
+    gbifIL = await gbifApi.getGbifInstallation(idx, gbifDS.publishingOrganizationKey);
+    if (valDP.uid) { //always update dataProvider
+      await valApi.putValDataProvider(idx, gbifPO, gbifIL, valDP);
+    } else { //no VAL DP found for dataSet. Create one.
+      dpUid = await valApi.postValDataProvider(idx, gbifPO, gbifIL); //NOTE: This does not return a dpUid. Yet.
+      valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
+    }
+    if (valDR.uid) {
+      log(`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);
+      await valApi.putValDataResource(idx, dsKey, gbifDS, valDR, valDP.uid);
+    } else {
+      log('VAL Data Resource NOT found');
+      await valApi.postValDataResource(idx, dsKey, gbifDS, valDP.uid);
+    }
+    log(`------------------------------------------------------------------------`)
+  }
 }
 
 async function putValDRbyValUid(idx=1, drUid=null, dpUid=null, inUid=null, coUid=null) {
@@ -173,7 +186,7 @@ async function putValDRbyValUid(idx=1, drUid=null, dpUid=null, inUid=null, coUid
 }
 
 async function putValDRbyGbifDatasetKey(idx=1, dsKey=null, dpUid=null, inUid=null, coUid=null) {
-  var drUid = null;
-  if (dsKey) {drUid = await valApi.findValDataResource(idx, dsKey);}
-  if (drUid) {putValDRbyValUid(idx, drUid, dpUid, inUid, coUid);}
+  var drVal = null;
+  if (dsKey) {drVal = await valApi.findValDataResource(idx, dsKey);}
+  if (drVal.uid) {putValDRbyValUid(idx, drUid, dpUid, inUid, coUid);}
 }

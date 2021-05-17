@@ -5,7 +5,7 @@
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: occurrence_split.js
+  File: 01_occurrence_split.js
 
   Notes:
     dataset/provider eml is stored as /dataset/datasetKey.xml and referenced in
