@@ -84,8 +84,8 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 exports.paths = {
   test_dwcaDir: "../dwca-small",
   test_splitDir: "../split-small",
-  dwcaDir: "../dwca_gbif_2021-05-05",
-  splitDir: "../split_2021-05-05",
+  dwcaDir: "../dwca_gbif_occurrences_2021-06-03",
+  splitDir: "../split_2021-06-03",
   logDir: "../split_logs"
 };
 

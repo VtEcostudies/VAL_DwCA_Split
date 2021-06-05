@@ -72,17 +72,19 @@ dRead.on('close', function() {
         mod = arr.slice(); //using .slice() copies by value, not by reference
 
         gbifId = mod[0];
-        dKey = gbifArr[gbifId];
+        dKey = gbifArr[gbifId]; //get datasetKey from gbifArr. if verbatim has gbifIds not in occurrence, this can be undefined
 
-        //log(`${idx} | verbatim.txt | ${dKey} | ${gbifId}`);
-
-        //look for already-open dKey write stream
-        if (!wStream[dKey]) {
-          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/verbatim.txt`);
-          wStream[dKey].write(`${top}\n`);
-          log(`${idx} | verbatim.txt | ${dKey}`, true);
+        if (dKey) { //dKey can be undefined now that we down-sample occurrence.txt and verbatim.txt for VT polygons
+          //look for already-open dKey write stream
+          if (!wStream[dKey]) {
+            wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/verbatim.txt`);
+            wStream[dKey].write(`${top}\n`);
+            log(`${idx} | verbatim.txt | ${dKey}`, true);
+          }
+          wStream[dKey].write(`${row}\n`);
+        } else {
+          log(`${idx} | ERROR | verbatim.txt | gbifId ${gbifId} not found in ${sDir}/gbifId_datasetKey.txt`, true);
         }
-        wStream[dKey].write(`${row}\n`);
       }
       idx++;
   });

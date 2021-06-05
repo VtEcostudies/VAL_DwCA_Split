@@ -15,11 +15,12 @@ Upload gzip files to server with scp:
 
 scp -i "C:\Users\jloomis\.ssh\vce_live_aws_key_pair.pem" ./*.zip ubuntu@vtatlasoflife.org:/srv/vtatlasoflife.org/www/gbif-split
 */
+console.log('asdfdas');
+
 const fs = require('fs');
 const archiver = require('archiver');
 const readline = require('readline');
 const paths = require('./00_config').paths;
-const prompt = require('prompt');
 
 var sDir = paths.splitDir; //path to directory to hold split GBIF DWcA files
 
@@ -28,38 +29,19 @@ var idx = 1; //file row index
 var cnt = 1; //separate counter for zipped array elements
 var output = [];
 var archive = [];
-var readFile = ['datasetKey_gbifArray.txt', 'multimedia_datasetKeys.txt'];
-var multi_only = 0; //an array element into readFile, above: 0 or 1
+var readFile = 'datasetKey_gbifArray.txt';
 
-function promptErr(err) {
-    console.log(err);
-    return 1;
-}
-
-if (1) {
-  main();
-} else {
-  prompt.start();
-  prompt.get(['multimedia'], function (err, result) {
-
-    if (err) { return promptErr(err); }
-    console.log('Command-line input received:');
-    console.log(': multimedia', result.multimedia);
-    //multi_only = result.multimedia != null ? 1 : 0;
-    console.log('readFile is ', readFile[multi_only]);
-    main(multi_only);
-  });
-}  
+main();
 
 /*
   Read datasetKey_gbifArray into local array and process files into zips for
   uploading.
 */
-function main(multi_only=0) {
+function main() {
 
   //read lines from datasetKey_... to get an array of datasetKeys
   var dRead = readline.createInterface({
-    input: fs.createReadStream(`${sDir}/${readFile[multi_only]}`)
+    input: fs.createReadStream(`${sDir}/${readFile}`)
   });
 
   //load the datasetKey_gbifArray file into local array
@@ -151,3 +133,4 @@ function main(multi_only=0) {
     archive[cnt].finalize();
 
   }
+}
