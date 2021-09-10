@@ -6,10 +6,16 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - https://www.gbif.org/occurrence/search?geometry=POLYGON((-73.38789%2045.02072,-73.41743%2044.62239,-73.32404%2044.47363,-73.47236%2044.0606,-73.39689%2043.77059,-73.47379%2043.57988,-73.39689%2043.54406,-73.33646%2043.60972,-73.29252%2043.56197,-73.29252%2042.73641,-72.52897%2042.73238,-72.44108%2042.99409,-72.28178%2043.65346,-72.0593%2043.8992,-72.01536%2044.21698,-71.51548%2044.48409,-71.47627%2045.01296,-73.38789%2045.02072))&has_coordinate=true&has_geospatial_issue=false
   As of 2021-01-28, the GBIF dataset query is:
   - https://www.gbif.org/occurrence/search?advanced=1&gadm_gid=USA.46_1
-2) Extract to a folder like eg. C:\Users\jloomis\Documents\VCE\VAL_DWcA_Split\dwca_gbif_2020-07-07
+  GADM query didn't work - boundaries were inaccurate.
+  As of 2021-09-08, the GBIF dataset queries are:
+  - https://www.gbif.org/occurrence/search?geometry=POLYGON((-73.38789%2045.02072,-73.48975%2044.62605,-73.4425%2044.44829,-73.48096%2044.05463,-73.39689%2043.77059,-73.47379%2043.57988,-73.39689%2043.54406,-73.33646%2043.60972,-73.29252%2043.56197,-73.29252%2042.73641,-72.52897%2042.73238,-72.44108%2042.99409,-72.28178%2043.65346,-72.0593%2043.8992,-72.01536%2044.21698,-71.51548%2044.48409,-71.47627%2045.01296,-73.03107%2045.02792,-73.03711%2045.14292,-73.30463%2045.14466,-73.38789%2045.02072))&has_geospatial_issue=false
+  - https://www.gbif.org/occurrence/search?has_coordinate=false&state_province=Vermont&state_province=Vermont%20(State)&state_province=VErmont&state_province=Vermont%20State%20(%E4%BD%9B%E8%92%99%E7%89%B9%E5%B7%9E)&state_province=Vermont%20%3F&state_province=Vermont%20(%E4%BD%9B%E8%92%99%E7%89%B9%E5%B7%9E)&advanced=1
+2) Extract to the folder C:\Users\jloomis\Documents\VCE\VAL_DWcA_Split\dwca_gbif_2021-09-07
 3) Alter the config settings in this config file, below, under exports.paths like eg.
   - dwcaDir: "../dwca_gbif_2020-07-07",
   - splitDir: "../split_2020-07-07"
+3.1) Pre-process the 'buffered' GBIF occurrence download to filter it against VCE's newer, more accurate spatial filter.
+
 4) From a command-prompt in the directory C:\Users\jloomis\Documents\VCE\VAL_DWcA_Split\repo run the command:
   - node 01_occurrence_split.js
   - see the documentation within 01_occurrence_split.js for behavior
@@ -51,11 +57,12 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - Create a new gbif-split directory on the ALA Core Server (/srv/vtatlasoflife.org/www/gbif-split)
   - local machine: cd C:\Users\jloomis\Documents\VCE\VAL_Data_Pipelines\VAL_DWcA_Split\split_2021-05-05
   - scp -i "C:/Users/jloomis/.ssh/vce_live_aws_key_pair.pem" ./*.zip ubuntu@52.10.66.189:/srv/vtatlasoflife.org/www/gbif-split
-  - chmod 777 /srv/vtatlasoflife.org/www/gbif-split
+  - chmod -R 777 /srv/vtatlasoflife.org/www/gbif-split
   - chown -R tomcat7.tomcat7 /srv/vtatlasoflife.org/www/gbif-split
   - IMPORTANT: MOVE 2 LARGEST FILES TO SUB-DIR BEFORE PROCESSING
-    - $ mkdir skip-huge && mv 4fa7b334-ce0d-4e88-aaae-2e0c138d049e.zip ./skip-huge (eBird)
-    - $ mv 50c9509d-22c7-4a22-a47d-8c48425ef4a7.zip ./skip-huge (iNat)
+    - mkdir skip-huge
+    - mv 4fa7b334-ce0d-4e88-aaae-2e0c138d049e.zip ./skip-huge (eBird)
+    - mv 50c9509d-22c7-4a22-a47d-8c48425ef4a7.zip ./skip-huge (iNat)
   - Load/reload all others first, then move those two files back and load/reload them individually (see below)
 12) When (8) completes and (9) thru (11) are done, run the command below.
   - This will create/update all Data Resources in VAL in preparation for data ingestion.
@@ -63,7 +70,7 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - node 06_api_create_update_data_resources.js
 13) When (12) completes, run the command below.
   - This will create/update all Data Providers in VAL in preparation for data ingestion.
-  - NOTE: This is no longer necessary
+  - NOTE: This is no longer necessary because 06_... above now does it
   - node 07_api_create_data_providers.js
 14) Proceed with ingestion of all data on the VAL DE server. This is an ALA process with its own
     detailed steps, outlined here:
@@ -71,10 +78,13 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - ls -alh
   - rm *.out
   - ./load-all.sh && tail -f load_all.out
+  - mv /srv/vtatlasoflife.org/www/gbif-split/skip-huge/* /srv/vtatlasoflife.org/www/gbif-split
   - ./load-dr19.sh && tail -f load_dr19.out
   - ./load-dr1.sh && tail -f load_dr1.out
   - ./process-all.sh && tail -f process_all.out
+  - ./before_index.sh
   - ./index-all.sh && tail -f index_all.out
+  - Read the contents of after_index.sh make changes accordingly, and execute it
 15) You may find that some historically-involved Data Resources no longer have data in Vermont. This should only happen
     with the correction of the GIS bounding-box used in the GBIF download query. It did happen on 2021-02-15 with the change
     to our GADM query. We found 23 datasets that are no longer valid:
@@ -84,9 +94,10 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 exports.paths = {
   test_dwcaDir: "../dwca-small",
   test_splitDir: "../split-small",
-  dwcaDir: "../dwca_gbif_occurrences_2021-06-03",
-  splitDir: "../split_2021-06-03",
-  logDir: "../split_logs"
+  dwcaDir: "../dwca_gbif_occurrences_w_location",
+  splitDir: "../split_w_location",
+  logDir: "../split_logs",
+  errDir: "../error_logs"
 };
 
 exports.urls = {

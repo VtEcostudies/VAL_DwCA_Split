@@ -1,0 +1,18 @@
+{
+  "pg_docker": {
+    "host": "localhost",
+		"user": "postgres",
+		"password": "postgres",
+    "port": 6543,
+    "version": 13,
+    "database": "gis"
+	},
+	"pg_local": {
+    "host": "localhost",
+		"user": "postgres",
+    "password": "EatArugula",
+    "port": 5432,
+    "version": 13,
+		"database": "val_species"
+	}
+}

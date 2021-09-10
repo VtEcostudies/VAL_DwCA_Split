@@ -21,7 +21,7 @@ const Request = require('request');
 const moment = require('moment');
 const log = require('./VAL_Utilities/97_utilities').log;
 const logDir = '../split-logs/';
-const logFile = 'delete_resources_by_UID_' + moment().format('YYYYMMDD-HHMMSSS') + '.txt';
+const logFile = 'delete_resources_by_UID_' + moment().format('YYYYMMDD-hhmmssS') + '.txt';
 const logStream = fs.createWriteStream(`${logDir}${logFile}`, {flags: 'w'});
 
 log(`config paths: ${JSON.stringify(paths)}`, logStream, true);

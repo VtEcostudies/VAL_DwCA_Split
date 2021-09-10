@@ -63,7 +63,7 @@ log(`config paths: ${JSON.stringify(paths)}`, true);
 process.on('exit', function(code) {
   if (processErrors) {
     wRead.close();
-    var newErrFile = `processed_${moment().format('YYYYMMDD-HHMMSS')}_${errFile}`;
+    var newErrFile = `processed_${moment().format('YYYYMMDD-hhmmss')}_${errFile}`;
     fs.renameSync(`${sDir}/${errFile}`, `${sDir}/${newErrFile}`);
     log(`Error File Renamed to ${sDir}/${newErrFile}`, true);
   }
