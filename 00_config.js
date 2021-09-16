@@ -6,7 +6,7 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - https://www.gbif.org/occurrence/search?geometry=POLYGON((-73.38789%2045.02072,-73.41743%2044.62239,-73.32404%2044.47363,-73.47236%2044.0606,-73.39689%2043.77059,-73.47379%2043.57988,-73.39689%2043.54406,-73.33646%2043.60972,-73.29252%2043.56197,-73.29252%2042.73641,-72.52897%2042.73238,-72.44108%2042.99409,-72.28178%2043.65346,-72.0593%2043.8992,-72.01536%2044.21698,-71.51548%2044.48409,-71.47627%2045.01296,-73.38789%2045.02072))&has_coordinate=true&has_geospatial_issue=false
   As of 2021-01-28, the GBIF dataset query is:
   - https://www.gbif.org/occurrence/search?advanced=1&gadm_gid=USA.46_1
-  GADM query didn't work - boundaries were inaccurate.
+  GADM query didn't work - boundaries were inaccurate and we missed important data at the borders.
   As of 2021-09-08, the GBIF dataset queries are:
   - https://www.gbif.org/occurrence/search?geometry=POLYGON((-73.38789%2045.02072,-73.48975%2044.62605,-73.4425%2044.44829,-73.48096%2044.05463,-73.39689%2043.77059,-73.47379%2043.57988,-73.39689%2043.54406,-73.33646%2043.60972,-73.29252%2043.56197,-73.29252%2042.73641,-72.52897%2042.73238,-72.44108%2042.99409,-72.28178%2043.65346,-72.0593%2043.8992,-72.01536%2044.21698,-71.51548%2044.48409,-71.47627%2045.01296,-73.03107%2045.02792,-73.03711%2045.14292,-73.30463%2045.14466,-73.38789%2045.02072))&has_geospatial_issue=false
   - https://www.gbif.org/occurrence/search?has_coordinate=false&state_province=Vermont&state_province=Vermont%20(State)&state_province=VErmont&state_province=Vermont%20State%20(%E4%BD%9B%E8%92%99%E7%89%B9%E5%B7%9E)&state_province=Vermont%20%3F&state_province=Vermont%20(%E4%BD%9B%E8%92%99%E7%89%B9%E5%B7%9E)&advanced=1
@@ -14,8 +14,16 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 3) Alter the config settings in this config file, below, under exports.paths like eg.
   - dwcaDir: "../dwca_gbif_2020-07-07",
   - splitDir: "../split_2020-07-07"
-3.1) Pre-process the 'buffered' GBIF occurrence download to filter it against VCE's newer, more accurate spatial filter.
-
+3.1) Pre-process GBIF download raw 'buffered' occurrence.txt and verbatim.txt against VCE's accurate spatial filter
+  - use R-studio with .R files in VAL_DwCA_Filter to create tables occurrence_filtered and verbatim_filtered
+3.2) MERGE occurrence.txt and verbatim.txt without location into the postgres tables occurrence_filtered and verbatim_filtered:
+  - use R-studio with .R files in VAL_DWCA_Filter to merge these datasets in postres
+  - use R to export those merged datasets to the .../filtered folder
+3.3) MERGE /dataset/*.xml files from wo-location ==> w-location
+3.4) MERGE multimedia.text from wo-location ==> w-location
+  - since occurrences in w-location are *exclusive* of wo-location, we can simply:
+    - append all rows from w-location to wo-location using text editor (NOTE: MUST REMOVE HEADER FROM append file)
+3.5) NO NEED TO MERGE citations.txt or rights.txt because that's done automatically by 03_citations_rights_get.js
 4) From a command-prompt in the directory C:\Users\jloomis\Documents\VCE\VAL_DWcA_Split\repo run the command:
   - node 01_occurrence_split.js
   - see the documentation within 01_occurrence_split.js for behavior
@@ -52,10 +60,10 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
     the latest names to do that.
   - See the process for updating the VAL Vermont Registry of Names here: https://github.com/VtEcostudies/val_species
 11) Prepare and upload zipped DwCA files to gbif-split directory on VAL Core server:
-  - cd /srv/
+  - cd /srv/vtatlasoflife.org/www
   - Rename existing gbif-split to gbif-split_{original-date}
   - Create a new gbif-split directory on the ALA Core Server (/srv/vtatlasoflife.org/www/gbif-split)
-  - local machine: cd C:\Users\jloomis\Documents\VCE\VAL_Data_Pipelines\VAL_DWcA_Split\split_2021-05-05
+  - local machine: cd C:\Users\jloomis\Documents\VCE\VAL_Data_Pipelines\VAL_DWcA_Split\split_both
   - scp -i "C:/Users/jloomis/.ssh/vce_live_aws_key_pair.pem" ./*.zip ubuntu@52.10.66.189:/srv/vtatlasoflife.org/www/gbif-split
   - chmod -R 777 /srv/vtatlasoflife.org/www/gbif-split
   - chown -R tomcat7.tomcat7 /srv/vtatlasoflife.org/www/gbif-split
@@ -94,8 +102,8 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 exports.paths = {
   test_dwcaDir: "../dwca-small",
   test_splitDir: "../split-small",
-  dwcaDir: "../dwca_gbif_occurrences_w_location",
-  splitDir: "../split_w_location",
+  dwcaDir: "../dwca_gbif_occurrences_both",
+  splitDir: "../split_both",
   logDir: "../split_logs",
   errDir: "../error_logs"
 };

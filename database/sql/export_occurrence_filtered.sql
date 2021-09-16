@@ -1,4 +1,4 @@
-SET client_encoding TO 'UTF8';
+--SET client_encoding TO 'UTF8';
 copy (
 	select * from occurrence_filtered
 )  

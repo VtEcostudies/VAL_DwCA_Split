@@ -32,6 +32,7 @@
 //https://nodejs.org/api/readline.html
 const readline = require('readline');
 const fs = require('fs');
+const constants = require('constants');
 const log = require('./VAL_Utilities/93_log_utilities').log;
 const init = require('./VAL_Utilities/93_log_utilities').init;
 const csvLineToObject = require('./VAL_Utilities/99_parse_csv_to_array').csvLineToObject;
@@ -44,6 +45,8 @@ const logDir = paths.logDir; //sDir;
 const errDir = sDir; //put errors in splitDir to use as future data inputs
 const logName = 'occurrence_split';
 const errName = 'occurrence_error';
+
+const MODE = 'w'; //'a'; // open some files to append on a 2nd pass to add data. otherwise, open to write.
 
 var wStream = []; //array of write streams, one for each datasetKey plus dKeyGbifArr, collections, institutions
 var gbifArr = []; //array of gbifIds. value is single datasetKey, gbifArr[gbifId] = dKey
@@ -61,8 +64,10 @@ var logToConsole = false; //console logging slows processing a lot
 
 const guid = /^[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{12}$/i; // validate 8-4-4-4-12
 
+var copyFile = [];
+
 process.on('exit', function(code) {
-  return log(`Exiting with code ${code}.`, 'Records', idx, 'Datasets', ctD, 'Collections', ctC, 'Institutions', ctI);
+  return log(1,`Exiting with code ${code}.`, 'Records', idx, 'Datasets', ctD, 'Collections', ctC, 'Institutions', ctI);
 });
 
 init(logName, logDir) //init's error does not throw error, allowing this to proceed on error
@@ -77,7 +82,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
 
     log(1, `config paths: ${JSON.stringify(paths)}`);
 
-    wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
+    wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`, {flags:MODE});
 
     var fRead = readline.createInterface({
       input: fs.createReadStream(`${dDir}/${occF}`)
@@ -89,17 +94,19 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
       var dKey = "";
       var ret = {};
 
-      var par = {}; //row parsed object having row (object) and rowA (array) elements
+      var prs = {}; //row parsed object having row (object) and rowA (array) elements
       var obj = {}; //row converted to JSON object
       var arr = []; //row converted to array
+      var txt = ""; //row parsed and cleaned - for insert into output file
       var mod = null; //array copied by value
 
       if (idx == 0) {
         top = row; //save the 1st row for each dKey/occurrence.txt
       } else {
-        par = csvLineToObject(dlm, top, row, false);
-        obj = par.rowO;
-        arr = par.rowA;
+        prs = csvLineToObject(dlm, top, row, false);
+        obj = prs.rowO;
+        arr = prs.rowA;
+        txt = prs.rowT;
         gbifId = obj.gbifID;
         dKey = obj.datasetKey;
 
@@ -110,7 +117,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
           gbifArr[gbifId] = dKey;
           //look for already-open gbifArr write stream. if not, create it. we do NOT wait for it to open?
           if (!wStream['gbifArr']) {
-            wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`);
+            wStream['gbifArr'] = fs.createWriteStream(`${sDir}/gbifId_datasetKey.txt`, {flags:MODE});
             wStream['gbifArr'].write(`${gbifId}:${dKey}\n`);
           } else {
             //immediately write to file (assumed unique)
@@ -128,25 +135,22 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
           try {
             fs.mkdirSync(`${sDir}/${dKey}/dataset`, {recursive:true}); //NOTE: this fails on values in "double-quotes"
             try {
-              eachRow(sDir, gbifId, dKey, top, row, obj);
+              eachRow(sDir, gbifId, dKey, top, txt, obj);
             } catch (err) {
               //log(1, `ERROR | eachRow`, err);
             }
           } catch (err) {
             log(1, `ERROR | fs.mkdirSync(${sDir}/${dKey}/dataset)`, err);
           }
-        } else { //end if (dKey.match(guid))
-          console.log('ERROR|', idx, '|gbifId:', gbifId, '|datasetKey:', dKey);
+        } else { //end if (dKey.match(guid)) - didn't match, so we had a row-parsing error
+          log(1, 'ERROR|', idx, '|gbifId:', gbifId, '|datasetKey:', dKey);
           if (!wStream['error']) {
             wStream['error'] = fs.createWriteStream(`${errDir}/${errName}.txt`);
             wStream['error'].write(`${top}\n`);
           }
-          //wStream['error'].write(`fileIndex:${idx}|datasetKey:${dKey}|gbifId:${gbifId}\n`);
           wStream['error'].write(`${row}\n`);
-          //wStream['error'].write(`${JSON.stringify(obj)}\n`);
-          //wStream['error'].write(`${arr}\n`);
           var quotes = (row.match(/"/g) || []).length;
-          console.log(`quote count:${quotes}\n`);
+          log(1, `quote count:${quotes}\n`);
           wStream['error'].write(`quote count:${quotes}\n`);
         }
       } //end if (idx==0)
@@ -155,8 +159,8 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
 
     /* when occurrence.txt is done, put local arrays to file:
       dKeyArr[dKey]
-      collObj[dKey][collId]
-      instObj[dKey][instId]
+      collObj[collId][dKey]
+      instObj[instId][dKey]
 
       Note that gbifArr[gbifId] = dKey is put to file on the fly.
     */
@@ -164,7 +168,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
       try {
         //look for already-open dKeyArr write stream
         if (!wStream['dKeyGbifArr']) {
-          wStream['dKeyGbifArr'] = fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`);
+          wStream['dKeyGbifArr'] = fs.createWriteStream(`${sDir}/datasetKey_gbifArray.txt`, {flags:MODE});
         }
         //put dKeyArr to file
         Object.keys(dKeyArr).forEach(function(key) {
@@ -174,7 +178,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
 
         //look for already-open collObj write stream
         if (!wStream['dKeyCollObj']) {
-          wStream['dKeyCollObj'] = fs.createWriteStream(`${sDir}/CollectionCodes_datasetKeys.txt`);
+          wStream['dKeyCollObj'] = fs.createWriteStream(`${sDir}/CollectionCodes_datasetKeys.txt`, {flags:MODE});
         }
         //put collObj to file
         Object.keys(collObj).forEach(function(coll) {
@@ -188,7 +192,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
 
         //look for already-open instObj write stream
         if (!wStream['dKeyInstObj']) {
-          wStream['dKeyInstObj'] = fs.createWriteStream(`${sDir}/InstitutionCodes_datasetKeys.txt`);
+          wStream['dKeyInstObj'] = fs.createWriteStream(`${sDir}/InstitutionCodes_datasetKeys.txt`, {flags:MODE});
         }
         //put instObj to file
         Object.keys(instObj).forEach(function(inst) {
@@ -231,28 +235,57 @@ function eachRow(sDir, gbifId, dKey, top, row, obj) {
     dKeyArr[dKey]=[];
     dKeyArr[dKey].push(gbifId);
 
-    fs.copyFile(`${dDir}/dataset/${dKey}.xml`, `${sDir}/${dKey}/dataset/${dKey}.xml`, (err) => {
-      if (err) {log(1, `ERROR`, `Copying ${dDir}/${dKey}.xml ==> ${sDir}/${dKey}/${dKey}.xml`);}
-      {log(1, `Copied ${dDir}/dataset/${dKey}.xml ==> ${sDir}/${dKey}/dataset/${dKey}.xml`);}
-    });
-    fs.copyFile(`${dDir}/meta.xml`, `${sDir}/${dKey}/meta.xml`, (err) => {
-      if (err) {log(1, `ERROR`, `Copying ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`);}
-      {log(1, `Copied ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`);}
-    });
-    fs.copyFile(`${dDir}/metadata.xml`, `${sDir}/${dKey}/metadata.xml`, (err) => {
-      if (err) {log(1, `ERROR`, `Copying ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);}
-      else {log(1, `Copied ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);}
-    });
+    if ('w' == MODE) { //write mode - just write the files
+      fs.copyFile(`${dDir}/dataset/${dKey}.xml`, `${sDir}/${dKey}/dataset/${dKey}.xml`, (err) => {
+        if (err) {log(1, `ERROR`, `Copying ${dDir}/${dKey}.xml ==> ${sDir}/${dKey}/${dKey}.xml`);}
+        else {log(1, `Copied ${dDir}/dataset/${dKey}.xml ==> ${sDir}/${dKey}/dataset/${dKey}.xml`);}
+      });
+      fs.copyFile(`${dDir}/meta.xml`, `${sDir}/${dKey}/meta.xml`, (err) => {
+        if (err) {log(1, `ERROR`, `Copying ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`);}
+        else {log(1, `Copied ${dDir}/meta.xml ==> ${sDir}/${dKey}/meta.xml`);}
+      });
+      fs.copyFile(`${dDir}/metadata.xml`, `${sDir}/${dKey}/metadata.xml`, (err) => {
+        if (err) {log(1, `ERROR`, `Copying ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);}
+        else {log(1, `Copied ${dDir}/metadata.xml ==> ${sDir}/${dKey}/metadata.xml`);}
+      });
+    } else { //append mode - if files don't exist, write them. If they DO, ...
+      copyFile = [`dataset/${dKey}.xml`,'meta.xml','metadata.xml'];
+      for (i=0; i<3; i++) {
+        log(1, `checking for existence of ${copyFile[i]}...`);
+        fs.access(`${sDir}/${dKey}/${copyFile[i]}`, constants.F_OK, (a_err, i) => {
+          if (a_err) { //copyFile doesn't exist
+            log(1, `${sDir}/${dKey}/${copyFile[i]} DOESN'T EXIST`);
+            fs.copyFile(`${dDir}/${copyFile[i]}`, `${sDir}/${dKey}/${copyFile[i]}`, (err) => {
+              if (err) {log(1, `ERROR`, `Copying MISSING file ${dDir}/${copyFile[i]} ==> ${sDir}/${dKey}/${copyFile[i]}`);}
+              else {log(1, `Copied ${dDir}/${copyFile[i]} ==> ${sDir}/${dKey}/${copyFile[i]}`);}
+            });
+          } else { //file exists. just copy metadata.xml to metadata.N.xml
+            log(1, `${sDir}/${dKey}/${copyFile[i]} EXISTS!!`);
+            if ('metadata.xml' == copyFile[i]) {
+              done = 0;
+              for (j=1; j<10; j++) {
+                if (done) break;
+                fs.copyFile(`${dDir}/metadata.xml`, `${sDir}/${dKey}/metadata.${j}.xml`, constants.COPYFILE_EXCL, (err, i, j) => {
+                  if (err) {log(1, `ERROR`, `Copying SIMILAR file ${dDir}/${copyFile[i]} ==> ${sDir}/${dKey}/metadata.${j}.xml`);}
+                  else {log(1, `Copied ${dDir}/${copyFile[i]} ==> ${sDir}/${dKey}/metadata.${j}.xml`); done=1;}
+                });
+              }
+            }
+          }
+        });
+      }
+    }
   } else {
     // make dKeyArr[dKey] = [gbifId, gbifId, ...]
     dKeyArr[dKey].push(gbifId);
   }
 
-  //look for already-open dKey write stream. create if not.
+  //look for already-open dKey/occurrence.txt write stream. create if not.
   if (!wStream[dKey]) {
-    //console.log(`Create Write Stream for ${sDir}/${dKey}/occurrence.txt`);
-    wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`);
-    wStream[dKey].write(`${top}\n`);
+    wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/occurrence.txt`, {flags:MODE});
+    if ('w' == MODE) { //write header row in write mode, NOT append mode
+      wStream[dKey].write(`${top}\n`);
+    }
     wStream[dKey].write(`${row}\n`);
   } else {
     //write occurrence row to datasetKey/occurrence.txt

@@ -44,6 +44,9 @@ const splitDir = paths.splitDir; //path to directory to hold split GBIF DwCA
 const logDir = paths.logDir
 const logName = 'api_create_data_resources';
 
+const idxPath = `${paths.splitDir}/api_create_last_index.json`; //keep track of the last index and dsKey processed to pick-up on error
+var idxStream = null; //write stream for the file at idxPath
+
 var dArr = []; //array of GBIF dataSet keys
 var idx = 0; //file row index
 var dryRun = false;
@@ -53,20 +56,30 @@ var dpUid = null; //VAL dataProvider UID
 var inUid = null; //VAL Institution UID
 var coUid = null; //VAL Collection UID
 
+process.on('exit', function(code) {
+  console.log('dKeyArray length:', dArr.length, 'index:', idx, 'writeStream:', null!=idxStream);
+  if (dArr.length == idx && idxStream) {
+    //clear the marker file
+    idxStream.close();
+    idxStream = fs.createWriteStream(idxPath, {flags:'w'});
+  }
+  return log(1,`Exiting with code ${code}.`, 'index:', idx, 'datasetKey:', dArr[idx-1]);
+});
+
 /*
   Now we wait for the log init's createWriteStream to emit an 'open' or 'error' event before we begin.
 */
 init(logName, logDir) //init's error does not throw error, allowing this to proceed on error
   .then(() => {
-    log('config paths', paths);
-    log('config urls', urls);
+    log(1,'config paths', paths);
+    log(1,'config urls', urls);
 
     //Get command-line args
     for (var i=0; i<process.argv.length; i++) {
       var all = process.argv[i].split('='); //the ith command-line argument
       var act = all[0]?all[0].toLowerCase():null; //action, left of action=argument
       var arg = all[1]?all[1].toLowerCase():null; //argument, right of action=argument
-      log(`command-line argument`, i, all);
+      log(1,`command-line argument`, i, all);
     	switch(act) {
         case "dskey":
           dsKey = arg;
@@ -95,7 +108,7 @@ init(logName, logDir) //init's error does not throw error, allowing this to proc
 });
 
 async function mainLoop() {
-  log(`Getting GBIF datasetKeys from file.`);
+  log(1,`Getting GBIF datasetKeys from file.`);
 
   var dRead = readline.createInterface({
     input: fs.createReadStream(`${splitDir}/datasetKey_gbifArray.txt`)
@@ -103,25 +116,47 @@ async function mainLoop() {
 
   //load the datasetKey_gbifArray file into local array
   dRead.on('line', function (row) {
-    idx++;
+    //idx++; // 1-based array?
     var arr = row.split(":");
     var mod = arr.slice(); //using .slice() copies by value, not by reference
 
     var dKey = mod[0];
-    dArr[idx] = dKey;
+    dArr[idx++] = dKey;
 
-    log(`read line`, idx, 'datasetKey', dKey);
+    log(1,`read line`, idx, 'datasetKey', dKey);
   });
 
   dRead.on('close', async function() {
     var gbifDS = null;
     var valDR = {};
     var valDP = {};
+    var objRead = null;
+    var idxPrev = 0;
+    var keyPrev = '';
+
+    log(1,`Getting last index and datasetKey marker from file:`, idxPath);
+    try {objRead = fs.readFileSync(idxPath, 'utf8');} catch(err) {log(1, err);}
+    log(1, `Marker file read result`, objRead);
+    if (objRead) {
+      objRead = JSON.parse(objRead);
+      idxPrev = objRead.idx;
+      keyPrev = objRead.datasetKey;
+    }
+    log(1, 'idx', idxPrev, 'key', `"${keyPrev}"`);
+
+    log(1,`Creating write stream to last index and datasetKey marker file:`, idxPath);
+    try {idxStream = fs.createWriteStream(idxPath, {flags:'w'});} catch(err) {idxStream = null; log(1, err);}
+
     /*
       Note: A simple for loop is synchronous, which is necessary for proper API updates.
     */
-    for (var idx=1; idx < (dryRun?2:dArr.length); idx++) { //dryRun for testing...
+    for (idx=idxPrev+1; idx < (dryRun?2:dArr.length); idx++) { //dryRun for testing...
       await handleGbifDatasetKey(idx, dArr[idx]);
+      if (idxStream) { //only works with synchronous await call to handleGbifDatasetKey...
+        idxStream.close();
+        idxStream = fs.createWriteStream(idxPath);
+        idxStream.write(`{"idx":${idx}, "datasetKey":"${dArr[idx]}"}`);
+      }
       //handleGbifDatasetKey(idx, dArr[idx]); //waaayy faster, and seems to work
     }
   });
@@ -135,7 +170,7 @@ async function handleGbifDatasetKey(idx, dsKey) {
   var gbifIL = {}; //GBIf IPT Installation
   gbifDS = await gbifApi.getGbifDataset(idx, dsKey);
   if (gbifDS) {
-    log(`GBIF Dataset Title`, gbifDS.title);
+    log(1,`GBIF Dataset Title`, gbifDS.title);
     valDR = await valApi.findValDataResource(idx, dsKey); //find VAL DR by GBIF dataSetKey in guid field
     valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
     //get GBIF Publisher and Installation info to create or update dataProvider
@@ -148,13 +183,13 @@ async function handleGbifDatasetKey(idx, dsKey) {
       valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
     }
     if (valDR.uid) {
-      log(`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);
+      log(1,`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);
       await valApi.putValDataResource(idx, dsKey, gbifDS, valDR, valDP.uid);
     } else {
-      log('VAL Data Resource NOT found');
+      log(1,'VAL Data Resource NOT found');
       await valApi.postValDataResource(idx, dsKey, gbifDS, valDP.uid);
     }
-    log(`------------------------------------------------------------------------`)
+    log(1,`------------------------------------------------------------------------`)
   }
 }
 
