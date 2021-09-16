@@ -5,15 +5,16 @@
   Parse aggregate GBIF download DwCA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
-  File: 06_api_create_update_data_resources.js
+  File: 06_api_create_update_data_resources_and_providers.js
 
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
   - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
-  - call GBIF API for datasetKey dependent data (not all was added to the original aggregate download)
-  - Create (POST) or Update (PUT) LA Collectory Resources from datasetKey data gathered from GBIF
-
-  ToDo:
+  - GET GBIF datasetKey dependent data (not all was added to the original aggregate download)
+  - GET GBIF PublishingOrganization info for dataset
+  - GET GBIF Installation info for dataset
+  - POST or PUT LA Collectory dataProvider
+  - POST or PUT LA Collectory dataResource (with dP->dR dependency links!)
 
   Notes:
   For each datasetKey, POST/PUT to the VAL API:
@@ -21,6 +22,7 @@
 
   to create/update resources for dataset upload and ingestion:
 
+  - dataProviders
   - dataResources
 
   Assumptions:
