@@ -35,7 +35,6 @@ var idx = 0; //file row index
 var top = ""; //1st line in file - field names
 var arr = [];
 var mod = null;
-var gbifObj = {};
 var gbifId = 0;
 var dKey = "";
 var dRead = readline.createInterface({
@@ -52,6 +51,9 @@ dRead.on('line', function (row) {
   dKey = mod[1];
   gbifArr[gbifId] = dKey;
 
+  if (!dKey) {
+    console.log(idx, gbifId, dKey);
+  }
   //console.log(`${idx} Adding multimedia file for gbifId: ${gbifId} to datasetKey: ${dKey}`);
 });
 
@@ -59,6 +61,11 @@ dRead.on('line', function (row) {
 dRead.on('close', function() {
   top = "";
   idx = 0;
+  var m_arr = [];
+  var m_mod = null;
+  var m_gbifId = 0;
+  var m_dKey = "";
+  var filtered = 0;
 
   var vRead = readline.createInterface({
     input: fs.createReadStream(`${dDir}/multimedia.txt`)
@@ -66,30 +73,35 @@ dRead.on('close', function() {
 
   wStream['mm_dKeys'] = fs.createWriteStream(`${sDir}/multimedia_datasetKeys.txt`);
 
-  vRead.on('line', function (row) {
+  vRead.on('line', function (m_row) {
       if (idx == 0) {
-        top = row; //save the 1st row for each dKey/multimedia.txt
+        top = m_row; //save the 1st row for each dKey/multimedia.txt
       } else {
         //<field index="0" term="http://rs.gbif.org/terms/1.0/gbifID"/>
         //<field index="12" term="http://purl.org/dc/terms/publisher"/>
-        arr = row.split("\t");
-        mod = arr.slice(); //using .slice() copies by value, not by reference
+        m_arr = m_row.split("\t");
+        m_mod = m_arr.slice(); //using .slice() copies by value, not by reference
 
-        gbifId = mod[0];
-        dKey = gbifArr[gbifId];
+        m_gbifId = m_mod[0];
+        m_dKey = gbifArr[m_gbifId];
 
         //console.log(`${idx} | multimedia.txt | ${dKey} | ${gbifId}`);
 
         //look for already-open dKey write stream
         //if not, create stream/file, write header
         //also add dKey to multimedia_datasetKeys to limit processing to those files later (if desired)
-        if (!wStream[dKey]) {
-          wStream[dKey] = fs.createWriteStream(`${sDir}/${dKey}/multimedia.txt`);
-          wStream[dKey].write(`${top}\n`);
-          console.log(`${idx} | create multimedia.txt | publisher: ${mod[12]} | ${dKey} | ${gbifId}`);
-          wStream['mm_dKeys'].write(`${dKey}\n`);
+        if (!m_dKey) {
+          filtered++;
+          console.log(`INDEX: ${idx} | COUNT: ${filtered} | gbifId: ${m_gbifId} from UNFILTERED multimedia.txt NOT IN filtered result set`);
+        } else {
+          if (!wStream[m_dKey]) {
+            wStream[m_dKey] = fs.createWriteStream(`${sDir}/${m_dKey}/multimedia.txt`);
+            wStream[m_dKey].write(`${top}\n`);
+            console.log(`${idx} | create multimedia.txt | publisher: ${mod[12]} | ${m_dKey} | ${m_gbifId}`);
+            wStream['mm_dKeys'].write(`${m_dKey}\n`);
+          }
+          wStream[m_dKey].write(`${m_row}\n`);
         }
-        wStream[dKey].write(`${row}\n`);
       }
       idx++;
   });

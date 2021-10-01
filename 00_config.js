@@ -64,7 +64,7 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - Rename existing gbif-split to gbif-split_{original-date}
   - Create a new gbif-split directory on the ALA Core Server (/srv/vtatlasoflife.org/www/gbif-split)
   - local machine: cd C:\Users\jloomis\Documents\VCE\VAL_Data_Pipelines\VAL_DWcA_Split\split_both
-  - scp -i "C:/Users/jloomis/.ssh/vce_live_aws_key_pair.pem" ./*.zip ubuntu@52.10.66.189:/srv/vtatlasoflife.org/www/gbif-split
+  - scp -i "C:/Users/jloomis/.ssh/vce_live_aws_key_pair.pem" ./*.zip ubuntu@vtatlasoflife.org:/srv/vtatlasoflife.org/www/gbif-split
   - chmod -R 777 /srv/vtatlasoflife.org/www/gbif-split
   - chown -R tomcat7.tomcat7 /srv/vtatlasoflife.org/www/gbif-split
   - IMPORTANT: MOVE 2 LARGEST FILES TO SUB-DIR BEFORE PROCESSING
@@ -97,6 +97,9 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
     with the correction of the GIS bounding-box used in the GBIF download query. It did happen on 2021-02-15 with the change
     to our GADM query. We found 23 datasets that are no longer valid:
   - See 08_api_delete_resources_by_UID.js to handle those.
+16) Index the BIE, etc. using these workflow documents
+  - Recipe: Update VAL DE Occurrences from GBIF (https://docs.google.com/document/d/1rGDdXZMeO3TaiYxM7TmnAqu3Nq8S-VHrB4jqqYT_8Q0)
+
 */
 
 exports.paths = {
