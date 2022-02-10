@@ -1,12 +1,10 @@
 /*
-  Author: Jason Loomis
-
   Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
 
   File: api_create_resources.js
-  
+
   Specifics:
   - use config.js to define a local folder holding source data, remote url hosting collectory API
   - use local datasetKey_gbifArray.txt to iterate over datasetKeys and create a local array
@@ -24,7 +22,7 @@
 
   val-docker (spring of 2019):
   http://beta.vtatlasoflife.org/collectory/ws/{resourceType}/{typeId}
-  
+
   val-ansible-production (fall of 2019):
   https://collectory.vtatlasoflife.org/ws/{}/{}
 

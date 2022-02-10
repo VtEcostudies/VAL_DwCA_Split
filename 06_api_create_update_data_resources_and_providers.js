@@ -1,6 +1,4 @@
 /*
-  Author: Jason Loomis
-
   Project: gbif_dwca_split
   Parse aggregate GBIF download DwCA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
@@ -182,7 +180,7 @@ async function handleGbifDatasetKey(idx, dsKey) {
       await valApi.putValDataProvider(idx, gbifPO, gbifIL, valDP);
     } else { //no VAL DP found for dataSet. Create one.
       dpUid = await valApi.postValDataProvider(idx, gbifPO, gbifIL); //NOTE: This does not return a dpUid. Yet.
-      valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey);
+      valDP = await valApi.findValDataProvider(idx, gbifDS.publishingOrganizationKey); //...therefore we have to do this
     }
     if (valDR.uid) {
       log(1,`VAL Data Resource found`, 'uid', valDR.uid, 'name', valDR.name, 'uri', valDR.uri);

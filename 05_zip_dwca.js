@@ -1,6 +1,4 @@
 /*
-Author: Jason Loomis
-
 Project: gbif_dwca_split
 Parse aggregate GBIF download DWcA into individual datasets/providers.
 Goal being then to ingest each dataset into VAL as a separate data resource.
@@ -15,7 +13,7 @@ Upload gzip files to server with scp:
 
 scp -i "C:\Users\jloomis\.ssh\vce_live_aws_key_pair.pem" ./*.zip ubuntu@vtatlasoflife.org:/srv/vtatlasoflife.org/www/gbif-split
 */
-console.log('asdfdas');
+console.log('Starting to zip split DwCA...');
 
 const fs = require('fs');
 const archiver = require('archiver');

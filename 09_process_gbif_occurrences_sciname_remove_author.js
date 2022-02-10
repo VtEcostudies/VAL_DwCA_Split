@@ -1,6 +1,4 @@
 /*
-  Author: Jason Loomis
-
   Project: VAL_GBIF_Split
 
   File: 09_process_gbif_occurrences_sciname_remove_author.js

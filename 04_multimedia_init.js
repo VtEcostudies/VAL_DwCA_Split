@@ -1,6 +1,4 @@
 /*
-  Author: Jason Loomis
-
   Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.

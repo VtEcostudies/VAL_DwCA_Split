@@ -73,14 +73,10 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
     - mv 50c9509d-22c7-4a22-a47d-8c48425ef4a7.zip ./skip-huge (iNat)
   - Load/reload all others first, then move those two files back and load/reload them individually (see below)
 12) When (8) completes and (9) thru (11) are done, run the command below.
-  - This will create/update all Data Resources in VAL in preparation for data ingestion.
-  - NOTE: This now also creates/updates all dataProviders as well
-  - node 06_api_create_update_data_resources.js
-13) When (12) completes, run the command below.
-  - This will create/update all Data Providers in VAL in preparation for data ingestion.
-  - NOTE: This is no longer necessary because 06_... above now does it
-  - node 07_api_create_data_providers.js
-14) Proceed with ingestion of all data on the VAL DE server. This is an ALA process with its own
+  - This will create/update all dataResources and dataProviders in VAL in preparation for data ingestion.
+  - node 06_api_create_update_data_resources_and_providers.js
+  - NOTE: node 07_api_create_data_providers.js is now obsolete
+13) Proceed with ingestion of all data on the VAL DE server. This is an ALA process with its own
     detailed steps, outlined here:
   - cd /data/biocache
   - ls -alh
@@ -92,12 +88,13 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
   - ./process-all.sh && tail -f process_all.out
   - ./before_index.sh
   - ./index-all.sh && tail -f index_all.out
-  - Read the contents of after_index.sh make changes accordingly, and execute it
-15) You may find that some historically-involved Data Resources no longer have data in Vermont. This should only happen
+  - Read the contents of after_index.sh make changes accordingly, and execute it:
+  - ./after_index.sh
+14) You may find that some historically-involved Data Resources no longer have data in Vermont. This should only happen
     with the correction of the GIS bounding-box used in the GBIF download query. It did happen on 2021-02-15 with the change
     to our GADM query. We found 23 datasets that are no longer valid:
   - See 08_api_delete_resources_by_UID.js to handle those.
-16) Index the BIE, etc. using these workflow documents
+15) Index the BIE, etc. using these workflow documents
   - Recipe: Update VAL DE Occurrences from GBIF (https://docs.google.com/document/d/1rGDdXZMeO3TaiYxM7TmnAqu3Nq8S-VHrB4jqqYT_8Q0)
 
 */
@@ -105,7 +102,8 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 exports.paths = {
   test_dwcaDir: "../dwca-small",
   test_splitDir: "../split-small",
-  dwcaDir: "../dwca_gbif_occurrences_both",
+  dwcaDir: "../dwca_gbif_occs_both",
+  filterDir: "../filtered",
   splitDir: "../split_both",
   logDir: "../split_logs",
   errDir: "../error_logs"

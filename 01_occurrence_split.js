@@ -1,6 +1,4 @@
 /*
-  Author: Jason Loomis
-
   Project: gbif_dwca_split
   Parse aggregate GBIF download DWcA into individual datasets/providers.
   Goal being then to ingest each dataset into VAL as a separate data resource.
@@ -67,7 +65,7 @@ const guid = /^[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za
 var copyFile = [];
 
 process.on('exit', function(code) {
-  return log(1,`Exiting with code ${code}.`, 'Records', idx, 'Datasets', ctD, 'Collections', ctC, 'Institutions', ctI);
+  return log(1,`Exiting with code ${code}.`, 'Occurrence Records', idx, 'Datasets', ctD, 'Collections', ctC, 'Institutions', ctI);
 });
 
 init(logName, logDir) //init's error does not throw error, allowing this to proceed on error
