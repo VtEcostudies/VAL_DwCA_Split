@@ -1,4 +1,4 @@
-Project: gbif_dwca_split
+Project: VAL_DwCA_Split
 
 Purpose:
   1) Parse aggregate GBIF download DwCA into individual datasets/providers.
