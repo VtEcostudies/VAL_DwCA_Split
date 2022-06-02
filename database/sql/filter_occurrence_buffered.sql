@@ -11,4 +11,4 @@ inner join vt_boundary_river_lake on
 		ST_GEOMFROMTEXT('POINT(' || "decimalLongitude" || ' ' ||  "decimalLatitude" || ')', 4326),
 		vt_boundary_river_lake.geometry
 	);
---SELECT COUNT("gbifID") FROM occurrence_filtered;
+--SELECT COUNT("gbifID") FROM occurrence_filtered; --loc:7645807 noloc:7851097

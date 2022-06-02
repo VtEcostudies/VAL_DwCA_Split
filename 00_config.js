@@ -17,13 +17,23 @@ VAL DE GBIF Occurrence-Data Harvesting Process Roadmap:
 3.1) Pre-process GBIF download raw 'buffered' occurrence.txt and verbatim.txt against VCE's accurate spatial filter
   - use R-studio with .R files in VAL_DwCA_Filter to create tables occurrence_filtered and verbatim_filtered
 3.2) MERGE occurrence.txt and verbatim.txt without location into the postgres tables occurrence_filtered and verbatim_filtered:
-  - use R-studio with .R files in VAL_DWCA_Filter to merge these datasets in postres
+  - use R-studio with .R files in VAL_DWCA_Filter to merge these datasets in postgres
   - use R to export those merged datasets to the .../filtered folder
-3.3) MERGE /dataset/*.xml files from wo-location ==> w-location
-3.4) MERGE multimedia.text from wo-location ==> w-location
+3.3) MERGE /dataset/{datasetId}.xml files from dwca_gbif_occs_w_loc & dwca_gbif_occs_wo_loc to dwca_gbif_occs_both
+  - COPY from dwca_gbif_occs_w_loc/dataset/*.xml to dwca_gbif_occs_both/dataset
+  - COPY from dwca_gbif_occs_wo_loc/dataset/*.xml to dwca_gbif_occs_both/dataset
+  - SKIP duplicates. Many are expected.
+3.4) MERGE metadata.xml from dwca_gbif_occs_w_loc & dwca_gbif_occs_wo_loc to dwca_gbif_occs_both
+  - This makes no sense for meta.xml, which appear identical except for the ordering of blocks. We MUST use just one file, here.
+  - For metadata.xml, which contains DOIs for each download file, plus details of those contents, attempt to merge them like this:
+    - combine DOIs
+    - include both abstracts in 2 <para> tags
+    - include both citations
+    - include both zip download URLs
+3.5) MERGE multimedia.text from wo-location ==> w-location
   - since occurrences in w-location are *exclusive* of wo-location, we can simply:
     - append all rows from w-location to wo-location using text editor (NOTE: MUST REMOVE HEADER FROM append file)
-3.5) NO NEED TO MERGE citations.txt or rights.txt because that's done automatically by 03_citations_rights_get.js
+3.6) NO NEED TO MERGE citations.txt or rights.txt because that's done automatically by 03_citations_rights_get.js
 4) From a command-prompt in the directory C:\Users\jloomis\Documents\VCE\VAL_DWcA_Split\repo run the command:
   - node 01_occurrence_split.js
   - see the documentation within 01_occurrence_split.js for behavior
